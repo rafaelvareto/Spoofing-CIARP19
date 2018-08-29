@@ -1,3 +1,21 @@
+# CUSTOM
+*.bin
+*.feat
+*.file
+*.h5
+*.jpg
+*.jpeg
+*.mod
+*.mp4
+*.npy
+*.npz
+*.png
+*.pdf
+*.tar
+*.zip
+
+/datasets/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
