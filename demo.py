@@ -36,11 +36,11 @@ def split_train_test_sets(complete_tuple_list, train_set_size=0.8):
     return train_tuple, test_tuple
 
 def main():
-    # Handling arguments
+    # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='ROC_curve.pdf', type=str)
-    parser.add_argument('-d', '--direction_path', help='Path to video txt file', required=False, default='datasets/SSIG-dataset/directions-small.txt', type=str)
-    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default='datasets/SSIG-dataset/', type=str)
+    parser.add_argument('-d', '--direction_path', help='Path to video txt file', required=False, default='datasets/SiW-dataset/directions-3-small.txt', type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default='datasets/SiW-dataset/', type=str)
     parser.add_argument('-r', '--repetitions', help='Number of executions [10..INF]', required=False, default=10, type=int)
     parser.add_argument('-t', '--train_set_size', help='Dataset percentage comprising training set [0..1]', required=False, default=0.5, type=float)
     
@@ -53,7 +53,7 @@ def main():
     REPETITIONS = int(args.repetitions)
     TRAIN_SIZE = float(args.train_set_size)
 
-    # Storing all-interation results
+    # Store all-interation results
     result_labels = list()
     result_scores = list()
 
@@ -71,10 +71,15 @@ def main():
         spoofDet.save_model()
 
         # Check whether class is ready to continue
-        assert(len(spoofDet.get_classes()) == 2)
+        # assert(len(spoofDet.get_classes()) == 2)
         assert('live' in spoofDet.get_classes())
-        assert('spoofing' in spoofDet.get_classes())
+        # assert('spoofing' in spoofDet.get_classes())
 
+        # Define APCER/BPCER variables
+        instances = spoofDet.get_classes()
+        counter_dict = {label:0.0 for label in instances}
+        mistake_dict = {label:0.0 for label in instances}
+        
         # Define lists to plot charts
         result = dict()
         result['labels'] = list()
@@ -83,17 +88,30 @@ def main():
         # Predict samples
         for (path, label) in test_set:
             print('>> ', path, label)
+            counter_dict[label] += 1
             probe_path = os.path.join(FOLDER_PATH, path)
             probe_video = cv.VideoCapture(probe_path)
             scores = spoofDet.predict_video(probe_video, detect=DETECT)
-            print(scores)
-            if len(scores):
+            scores_dict = {label:value for (label,value) in scores}
+            
+            # Generate ROC Curve
+            if len(scores_dict):
                 if label == 'live':
                     result['labels'].append(+1)
-                    result['scores'].append(scores['live'])
+                    result['scores'].append(scores_dict['live'])
                 else:
                     result['labels'].append(-1)
-                    result['scores'].append(scores['live'])
+                    result['scores'].append(scores_dict['live'])
+                print(scores_dict)
+
+            # Increment ERROR values
+            pred_label, pred_score = scores[0]
+            if pred_label != label:
+                mistake_dict[label] += 1
+
+        # Generate APCER, BPCER
+        result_dict = {label:mistake_dict[label]/counter_dict[label] for label in instances}
+        print("RESULT", counter_dict, mistake_dict, result_dict)
 
         # Save data to files
         result_labels.append(result['labels'])
