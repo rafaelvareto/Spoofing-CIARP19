@@ -90,7 +90,7 @@ class FaceSpoofing:
         if show:
             cv.imshow('spectrum', cv.normalize(sample_spectrum, 0, 255, cv.NORM_MINMAX))
             cv.waitKey(1)
-        return sample_featureB
+        return sample_feature
 
     def obtain_image_features(self, folder_path, dataset_tuple, detect=False):
         for (path, label) in dataset_tuple:
