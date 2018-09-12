@@ -5,6 +5,7 @@
 *.h5
 *.jpg
 *.jpeg
+*.json
 *.mod
 *.mp4
 *.npy
