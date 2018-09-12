@@ -37,6 +37,7 @@ class FaceSpoofing:
                 dictionary[label].append(result)
             else:
                 dictionary[label] = [result, ]
+        return dictionary
 
     def __mean_and_return(self, dictionary):
         new_list = {key:float(np.mean(value)) for (key, value) in dictionary.items()}
@@ -142,8 +143,8 @@ class FaceSpoofing:
                     results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                     labels = [model[1] for model in self._models]
                     scores = list(map(lambda left,right:(left,right), labels, results))
-                    self.__manage_results(class_dict, scores)
-                return self.__mean_and_return(class_dict)
+                    class_dict = self.__manage_results(class_dict, scores)
+                return self.__mean_and_sort(class_dict)
         else:
             raise ValueError('Error predicting probe image') 
 
@@ -165,11 +166,11 @@ class FaceSpoofing:
                                 results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                                 labels = [model[1] for model in self._models]
                                 scores = list(map(lambda left,right:(left,right), labels, results))
-                                self.__manage_results(class_dict, scores)
+                                class_dict = self.__manage_results(class_dict, scores)
                 else:
                     break
-                frame_counter += 1
-            return self.__mean_and_return(class_dict)
+                frame_counter += 1 
+            return self.__mean_and_sort(class_dict)
         else:
             raise ValueError('Error predicting probe video')
 
