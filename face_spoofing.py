@@ -80,14 +80,17 @@ class FaceSpoofing:
         log_img = np.log(1 + mag_img)
         return log_img
 
-    def gray2glcm_pipeline(self, sample_image):
+    def gray2feat_pipeline(self, sample_image, show=False):
         sample_gray = self.get_gray_image(color_img=sample_image)
         sample_noise = self.get_residual_noise(gray_img=sample_gray, filter_type='median')
         sample_spectrum = self.get_fourier_spectrum(noise_img=sample_noise)
-        sample_feature = self._descriptor.get_glcm_feature(image=sample_spectrum, dists=[1,2])
-        cv.imshow('spectrum', cv.normalize(sample_spectrum, 0, 255, cv.NORM_MINMAX))
-        cv.waitKey(10)
-        return sample_feature
+        sample_featureA = self._descriptor.get_hog_feature(image=sample_gray, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
+        sample_featureB = self._descriptor.get_glcm_feature(image=sample_spectrum, dists=[1,2], shades=20)
+        sample_feature = np.concatenate((sample_featureA, sample_featureB), axis=0)
+        if show:
+            cv.imshow('spectrum', cv.normalize(sample_spectrum, 0, 255, cv.NORM_MINMAX))
+            cv.waitKey(1)
+        return sample_featureB
 
     def obtain_image_features(self, folder_path, dataset_tuple, detect=False):
         for (path, label) in dataset_tuple:
@@ -99,7 +102,7 @@ class FaceSpoofing:
                 image_vector = [sample_image,]
             if len(image_vector) == 1:
                 for image in image_vector:
-                    feature = self.gray2glcm_pipeline(image)
+                    feature = self.gray2feat_pipeline(image)
                     self._features.append(feature)
                     self._labels.append(label)
 
@@ -120,7 +123,7 @@ class FaceSpoofing:
                             image_vector = [sample_frame,]
                         if len(image_vector) == 1:
                             for image in image_vector:
-                                feature = self.gray2glcm_pipeline(image)
+                                feature = self.gray2feat_pipeline(image)
                                 self._features.append(feature)
                                 self._labels.append(label)
                 else:
@@ -139,7 +142,7 @@ class FaceSpoofing:
                 image_vector = [probe_image,]
             if len(image_vector) == 1:
                 for image in image_vector:
-                    feature = self.gray2glcm_pipeline(image)
+                    feature = self.gray2feat_pipeline(image)
                     results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                     labels = [model[1] for model in self._models]
                     scores = list(map(lambda left,right:(left,right), labels, results))
@@ -162,7 +165,7 @@ class FaceSpoofing:
                             image_vector = [probe_frame,]
                         if len(image_vector) == 1:
                             for image in image_vector:
-                                feature = self.gray2glcm_pipeline(image)
+                                feature = self.gray2feat_pipeline(image)
                                 results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                                 labels = [model[1] for model in self._models]
                                 scores = list(map(lambda left,right:(left,right), labels, results))
