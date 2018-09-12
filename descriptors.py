@@ -20,6 +20,10 @@ class Descriptors:
         self._sift = cv.xfeatures2d.SIFT_create()
         self._surf = cv.xfeatures2d.SURF_create()
 
+    def __normalize(self, vector):
+        total = np.sum(vector)
+        return vector / np.sum(vector)
+
     def convert_to_int(self, image):
         return image.astype(np.uint8)
 
@@ -48,22 +52,25 @@ class Descriptors:
         int_image = self.convert_to_int(image)
         pass
 
-    def get_glcm_feature(self, image, dists=[1,2], stats=['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation','ASM']):
+    def get_glcm_feature(self, image, dists=[1,2], shades=16, stats=['contrast','dissimilarity','homogeneity','energy','correlation','ASM']):
+        '''
+        Usually the GLCM texture features are from gray scale images of 256 gray levels in thee main degrees Horizontal, Vertical, and diagonal (0, 45,90,135).
+        '''
         feats = list()
         int_image = self.convert_to_int(image)
-        matrix = ski.feature.greycomatrix(int_image, distances=dists, angles=[np.deg2rad(0), np.deg2rad(45), np.deg2rad(90), np.deg2rad(135)], levels=16, normed=True)
-        # matrix = ski.feature.greycomatrix(int_image, distances=dists, angles=[np.deg2rad(0), np.deg2rad(30), np.deg2rad(60), np.deg2rad(90), np.deg2rad(120), np.deg2rad(150)], levels=16, normed=True)
+        matrix = ski.feature.greycomatrix(int_image, distances=dists, angles=[np.deg2rad(0), np.deg2rad(45), np.deg2rad(90), np.deg2rad(135)], levels=shades, normed=True)
         for item in stats:
-            feats.extend(ski.feature.greycoprops(matrix, item).flatten())
+            feature = ski.feature.greycoprops(matrix, item).flatten()
+            feats.extend(self.__normalize(feature))
         return feats
         
-    def get_hog_feature(self, image, version='ski'):
+    def get_hog_feature(self, image, pixel4cell=(32,32), cell4block=(2,2), orientation=9, version='ski'):
         int_image = self.convert_to_int(image)
         if version == 'cv':
             feats = self._hog.compute(int_image)
             feats = np.array([float(item) for item in feats])
         elif version == 'ski':
-            feats = ski.feature.hog(int_image, pixels_per_cell=(16,16), cells_per_block=(2,2), orientations=9, block_norm='L2')
+            feats = ski.feature.hog(int_image, pixels_per_cell=pixel4cell, cells_per_block=cell4block, orientations=orientation, block_norm='L2')
         else:
             raise ValueError('ERROR: Two HOG methods available: ski (skimage) and cv (opencv)')
         return feats
@@ -72,11 +79,12 @@ class Descriptors:
         int_image = self.convert_to_int(image)
         pass
 
-    def get_lbp_feature(self, image):
+    def get_lbp_feature(self, image, bins=265):
         int_image = self.convert_to_int(image)
         feats = ski.feature.local_binary_pattern(int_image, P=24, R=8)
-        hist = np.histogram(feats, normed=True, bins=256)
-        return hist[0].flatten()
+        hist = np.histogram(feats, normed=True, bins=bins)
+        feature = hist[0].flatten()
+        return self.__normalize(feature)
 
     def get_orb_feature(self, image, kpoints=100):
         int_image = self.convert_to_int(image)
