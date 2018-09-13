@@ -4,13 +4,15 @@ https://docs.opencv.org/2.4/doc/tutorials/core/discrete_fourier_transform/discre
 http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_transforms/py_fourier_transform/py_fourier_transform.html
 '''
 
+import copy
 import cv2 as cv
 import numpy as np
 import os
 import random
 
-# from keras.utils import np_utils
-# from deep_learning import DeepLearning
+from keras.models import Sequential 
+from keras.utils import np_utils
+from deep_learning import DeepLearning
 from descriptors import Descriptors
 
 
@@ -21,6 +23,7 @@ class FaceSpoofing:
         self._descriptor = Descriptors()
         self._gaussian_var = 2.0
         self._features = list()
+        self._fourier = list()
         self._images = list()
         self._kernel_size = 7
         self._labels = list()
@@ -46,6 +49,13 @@ class FaceSpoofing:
         new_list.sort(key=lambda tup:tup[1], reverse=True)
         return new_list
 
+    def __channel_swap(self, image): 
+        # Transform GBR to RGB
+        spare = copy.copy(image)
+        image[:, :, 0] = spare[:, :, 2]
+        image[:, :, 2] = spare[:, :, 0]
+        return image
+
     def get_gray_image(self, color_img):
         return cv.cvtColor(color_img, cv.COLOR_BGR2GRAY)
 
@@ -70,6 +80,15 @@ class FaceSpoofing:
         mag_img = np.abs(fts_img)
         log_img = np.log(1 + mag_img)
         return log_img
+
+    def gray2spec_pipeline(self, sample_image, show=False): 
+        sample_gray = self.get_gray_image(color_img=sample_image) 
+        sample_noise = self.get_residual_noise(gray_img=sample_gray, filter_type='median') 
+        sample_spectrum = self.get_fourier_spectrum(noise_img=sample_noise) 
+        if show: 
+            cv.imshow('spectrum', cv.normalize(sample_spectrum, 0, 255, cv.NORM_MINMAX)) 
+            cv.waitKey(1) 
+        return sample_spectrum 
 
     def gray2feat_pipeline(self, sample_image, show=False):
         sample_gray = self.get_gray_image(color_img=sample_image)
@@ -109,6 +128,26 @@ class FaceSpoofing:
                     break
                 frame_counter += 1
 
+    def obtain_video_images(self, folder_path, dataset_tuple, frame_drop=10, verbose=False): 
+        for (path, label) in dataset_tuple: 
+            if verbose: 
+                print(path, label) 
+            frame_counter = 0 
+            sample_path = os.path.join(folder_path, path) 
+            sample_video = cv.VideoCapture(sample_path) 
+            while(sample_video.isOpened()): 
+                ret, sample_frame = sample_video.read() 
+                if ret: 
+                    if frame_counter % frame_drop == 0: 
+                        gray_image = self.get_gray_image(sample_frame) 
+                        spec_image = self.gray2spec_pipeline(gray_image) 
+                        self._fourier.append(spec_image) 
+                        self._images.append(gray_image) 
+                        self._labels.append(label) 
+                else: 
+                    break 
+                frame_counter += 1 
+
     def load_model(self, file_name='model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
 
@@ -121,6 +160,8 @@ class FaceSpoofing:
             scores = list(map(lambda left,right:(left,right), labels, results))
             class_dict = self.__manage_results(class_dict, scores)
             return self.__mean_and_sort(class_dict)
+        elif self._type == 'CNN': 
+            pass 
         else:
             raise ValueError('Error predicting probe image') 
 
@@ -141,17 +182,13 @@ class FaceSpoofing:
                     break
                 frame_counter += 1 
             return self.__mean_and_sort(class_dict)
+        elif self._type == 'CNN': 
+            pass 
         else:
             raise ValueError('Error predicting probe video')
 
     def save_model(self, file_name='model.npy'):
         np.save(file_name, [self._labels, self._models, self._type])
-
-    def trainDL(self, nclasses=3):
-        self._type = 'DL'
-        self._model = DeepLearning.build_LeNet(width=96, height=96, depth=1, classes=nclasses)
-        train_labels = np_utils.to_categorical(self._labels, nclasses)
-        pass
 
     def trainPLS(self, components=10, iterations=500):
         self._models = list()
@@ -162,6 +199,7 @@ class FaceSpoofing:
             boolean_label = [label == lab for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
+        self.save_model(file_name='pls_model.npy') 
 
     def trainSVM(self, kernel_type='rbf', verbose=False):
         self._models = list()
@@ -172,4 +210,13 @@ class FaceSpoofing:
             boolean_label = [label == lab for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
+        self.save_model(file_name='svm_model.npy') 
 
+    def trainCNN(self, batch=128, epoch=20): 
+        nclasses = len(self.get_classes()) 
+        self._models = DeepLearning.build_LeNet(width=96, height=96, depth=1, classes=nclasses) 
+        self._type = 'CNN' 
+        train_labels = np_utils.to_categorical(self._labels, nclasses) 
+        # Continuar aqui...
+        self._models.fit(self._images, self._labels, batch_size=batch, nb_epoch=epoch, verbose=1) 
+        self._models.save_weights('cnn_model.npy', overwrite=True) 
