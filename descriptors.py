@@ -21,7 +21,6 @@ class Descriptors:
         self._surf = cv.xfeatures2d.SURF_create()
 
     def __normalize(self, vector):
-        total = np.sum(vector)
         return vector / np.sum(vector)
 
     def convert_to_int(self, image):
