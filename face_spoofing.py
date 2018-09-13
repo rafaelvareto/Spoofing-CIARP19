@@ -12,7 +12,6 @@ import random
 # from keras.utils import np_utils
 # from deep_learning import DeepLearning
 from descriptors import Descriptors
-from face_detection import FaceDetection
 
 
 class FaceSpoofing:
@@ -20,7 +19,6 @@ class FaceSpoofing:
         print('Face Spoofing Class')
         self._color_space = 0
         self._descriptor = Descriptors()
-        self._detector = FaceDetection() 
         self._gaussian_var = 2.0
         self._features = list()
         self._images = list()
@@ -47,13 +45,6 @@ class FaceSpoofing:
         new_list = [(key,float(np.mean(value))) for (key, value) in dictionary.items()]
         new_list.sort(key=lambda tup:tup[1], reverse=True)
         return new_list
-
-    def __crop_faces(self, image, face_size=128, padding=0):
-        bboxes = self._detector.detectFace(image)
-        faces = [image[int(box[1])-padding:int(box[3])+padding, int(box[0])-padding:int(box[2])+padding] for box in bboxes]
-        if face_size is not None:
-            faces = [cv.resize(face, dsize=(face_size, face_size), interpolation=cv.INTER_CUBIC) for face in faces] 
-        return faces
 
     def get_gray_image(self, color_img):
         return cv.cvtColor(color_img, cv.COLOR_BGR2GRAY)
@@ -92,21 +83,15 @@ class FaceSpoofing:
             cv.waitKey(1)
         return sample_feature
 
-    def obtain_image_features(self, folder_path, dataset_tuple, detect=False):
+    def obtain_image_features(self, folder_path, dataset_tuple):
         for (path, label) in dataset_tuple:
             sample_path = os.path.join(folder_path, path)
             sample_image = cv.imread(sample_path, cv.IMREAD_COLOR)
-            if detect:
-                image_vector = self.__crop_faces(sample_image, face_size=128, padding=10)
-            else:
-                image_vector = [sample_image,]
-            if len(image_vector) == 1:
-                for image in image_vector:
-                    feature = self.gray2feat_pipeline(image)
-                    self._features.append(feature)
-                    self._labels.append(label)
+            feature = self.gray2feat_pipeline(sample_image)
+            self._features.append(feature)
+            self._labels.append(label)
 
-    def obtain_video_features(self, folder_path, dataset_tuple, detect=False, frame_drop=10, verbose=False):
+    def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=10, verbose=False):
         for (path, label) in dataset_tuple:
             if verbose:
                 print(path, label)
@@ -117,15 +102,9 @@ class FaceSpoofing:
                 ret, sample_frame = sample_video.read()
                 if ret:
                     if frame_counter % frame_drop == 0:
-                        if detect:
-                            image_vector = self.__crop_faces(sample_frame, face_size=128, padding=10)
-                        else:
-                            image_vector = [sample_frame,]
-                        if len(image_vector) == 1:
-                            for image in image_vector:
-                                feature = self.gray2feat_pipeline(image)
-                                self._features.append(feature)
-                                self._labels.append(label)
+                        feature = self.gray2feat_pipeline(sample_frame)
+                        self._features.append(feature)
+                        self._labels.append(label)
                 else:
                     break
                 frame_counter += 1
@@ -133,25 +112,19 @@ class FaceSpoofing:
     def load_model(self, file_name='model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
 
-    def predict_image(self, probe_image, detect=False):
+    def predict_image(self, probe_image):
         if self._type == 'PLS' or self._type == 'SVM':
             class_dict = dict()
-            if detect:
-                image_vector = self.__crop_faces(probe_image, padding=10)
-            else:
-                image_vector = [probe_image,]
-            if len(image_vector) == 1:
-                for image in image_vector:
-                    feature = self.gray2feat_pipeline(image)
-                    results = [float(model[0].predict(np.array([feature]))) for model in self._models]
-                    labels = [model[1] for model in self._models]
-                    scores = list(map(lambda left,right:(left,right), labels, results))
-                    class_dict = self.__manage_results(class_dict, scores)
-                return self.__mean_and_sort(class_dict)
+            feature = self.gray2feat_pipeline(probe_image)
+            results = [float(model[0].predict(np.array([feature]))) for model in self._models]
+            labels = [model[1] for model in self._models]
+            scores = list(map(lambda left,right:(left,right), labels, results))
+            class_dict = self.__manage_results(class_dict, scores)
+            return self.__mean_and_sort(class_dict)
         else:
             raise ValueError('Error predicting probe image') 
 
-    def predict_video(self, probe_video, detect=False, frame_drop=10):
+    def predict_video(self, probe_video, frame_drop=10):
         if self._type == 'PLS' or self._type == 'SVM':
             frame_counter = 0
             class_dict = dict()
@@ -159,17 +132,11 @@ class FaceSpoofing:
                 ret, probe_frame = probe_video.read()
                 if ret:
                     if frame_counter % frame_drop == 0:
-                        if detect:
-                            image_vector = self.__crop_faces(probe_frame) 
-                        else:
-                            image_vector = [probe_frame,]
-                        if len(image_vector) == 1:
-                            for image in image_vector:
-                                feature = self.gray2feat_pipeline(image)
-                                results = [float(model[0].predict(np.array([feature]))) for model in self._models]
-                                labels = [model[1] for model in self._models]
-                                scores = list(map(lambda left,right:(left,right), labels, results))
-                                class_dict = self.__manage_results(class_dict, scores)
+                        feature = self.gray2feat_pipeline(probe_frame)
+                        results = [float(model[0].predict(np.array([feature]))) for model in self._models]
+                        labels = [model[1] for model in self._models]
+                        scores = list(map(lambda left,right:(left,right), labels, results))
+                        class_dict = self.__manage_results(class_dict, scores)
                 else:
                     break
                 frame_counter += 1 

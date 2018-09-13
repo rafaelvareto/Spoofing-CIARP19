@@ -49,7 +49,6 @@ def main():
     # Storing in variables
     args = parser.parse_args()
     CHART_PATH = str(args.chart_path)
-    DETECT = False
     DIRECT_PATH = str(args.direction_path)
     ERROR_OUTCOME = str(args.error_outcome)
     FOLDER_PATH = str(args.folder_path)
@@ -70,7 +69,7 @@ def main():
 
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
-        spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, detect=DETECT, frame_drop=10, verbose=True)
+        spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, verbose=True)
         spoofDet.trainPLS(components=10, iterations=1000) # spoofDet.trainSVM(kernel_type='linear', verbose=False)
         spoofDet.save_model()
 
@@ -94,7 +93,7 @@ def main():
             counter_dict[label] += 1
             probe_path = os.path.join(FOLDER_PATH, path)
             probe_video = cv.VideoCapture(probe_path)
-            scores = spoofDet.predict_video(probe_video, detect=DETECT, frame_drop=10)
+            scores = spoofDet.predict_video(probe_video, frame_drop=10)
             scores_dict = {label:value for (label,value) in scores}
             
             # Generate ROC Curve
