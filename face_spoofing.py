@@ -21,6 +21,7 @@ class FaceSpoofing:
         print('Face Spoofing Class')
         self._color_space = 0
         self._descriptor = Descriptors()
+        self._dictionary = dict()
         self._gaussian_var = 2.0
         self._features = list()
         self._fourier = list()
@@ -28,6 +29,7 @@ class FaceSpoofing:
         self._kernel_size = 7
         self._labels = list()
         self._models = None
+        self._size = (96, 96, 3)
         self._type = 'None'
         self._vr_height = 1
         self._vr_width = 30
@@ -50,7 +52,6 @@ class FaceSpoofing:
         return new_list
 
     def __channel_swap(self, image): 
-        # Transform GBR to RGB
         spare = copy.copy(image)
         image[:, :, 0] = spare[:, :, 2]
         image[:, :, 2] = spare[:, :, 0]
@@ -80,6 +81,10 @@ class FaceSpoofing:
         mag_img = np.abs(fts_img)
         log_img = np.log(1 + mag_img)
         return log_img
+
+    def get_num_classes(self):
+        categories = set(self._labels)
+        return len(categories)
 
     def gray2spec_pipeline(self, sample_image, show=False): 
         sample_gray = self.get_gray_image(color_img=sample_image) 
@@ -128,7 +133,8 @@ class FaceSpoofing:
                     break
                 frame_counter += 1
 
-    def obtain_video_images(self, folder_path, dataset_tuple, frame_drop=10, verbose=False): 
+    def obtain_video_images(self, folder_path, dataset_tuple, frame_drop=10, size=(96,96,3), verbose=False): 
+        self._size = size
         for (path, label) in dataset_tuple: 
             if verbose: 
                 print(path, label) 
@@ -137,12 +143,18 @@ class FaceSpoofing:
             sample_video = cv.VideoCapture(sample_path) 
             while(sample_video.isOpened()): 
                 ret, sample_frame = sample_video.read() 
-                if ret: 
+                if ret:
+                    scaled_image = cv.resize(sample_frame, (size[0], size[1]), interpolation=cv.INTER_AREA) 
                     if frame_counter % frame_drop == 0: 
-                        gray_image = self.get_gray_image(sample_frame) 
-                        spec_image = self.gray2spec_pipeline(gray_image) 
-                        self._fourier.append(spec_image) 
-                        self._images.append(gray_image) 
+                        gray_image = self.get_gray_image(scaled_image) 
+                        spec_image = self.gray2spec_pipeline(scaled_image) 
+                        self._fourier.append(spec_image)
+                        if size[2] == 1:
+                            self._images.append(gray_image) 
+                        elif size[2] == 3:
+                            self._images.append(scaled_image)
+                        else:
+                            raise ValueError('ERROR: Unusual number of channels given.')
                         self._labels.append(label) 
                 else: 
                     break 
@@ -191,8 +203,8 @@ class FaceSpoofing:
         np.save(file_name, [self._labels, self._models, self._type])
 
     def trainPLS(self, components=10, iterations=500):
-        self._models = list()
         self._type = 'PLS'
+        self._models = list()
         from sklearn.cross_decomposition import PLSRegression
         for label in self.get_classes():
             classifier = PLSRegression(n_components=components, max_iter=iterations)
@@ -202,8 +214,8 @@ class FaceSpoofing:
         self.save_model(file_name='pls_model.npy') 
 
     def trainSVM(self, kernel_type='rbf', verbose=False):
-        self._models = list()
         self._type = 'SVM'
+        self._models = list()
         from sklearn.svm import SVR
         for label in self.get_classes():
             classifier = SVR(C=1.0, kernel=kernel_type, verbose=verbose)
@@ -212,11 +224,18 @@ class FaceSpoofing:
             self._models.append((model, label))
         self.save_model(file_name='svm_model.npy') 
 
+    def __build_dictionary(self):
+        lab_dict = {label:number for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
+        num_dict = {number:label for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
+        self._dictionary = dict( list(lab_dict.items()) + list(num_dict.items()) )
+
     def trainCNN(self, batch=128, epoch=20): 
-        nclasses = len(self.get_classes()) 
-        self._models = DeepLearning.build_LeNet(width=96, height=96, depth=1, classes=nclasses) 
-        self._type = 'CNN' 
-        cat_labels = np_utils.to_categorical(self._labels, nclasses) 
-        self._models.fit(self._images, cat_labels, batch_size=batch, nb_epoch=epoch, verbose=1) 
+        self._type = 'CNN'
+        self.__build_dictionary()
+        int_labels = [self._dictionary[label] for label in self._labels]
+        cat_labels = np_utils.to_categorical(int_labels, self.get_num_classes())
+        self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes()) 
+        self._models.fit(self._images, cat_labels, batch_size=batch, nb_epoch=epoch, verbose=1)
         self._models.save_weights('cnn_model.npy', overwrite=True) 
-        # Continuar aqui...
+        
+        
