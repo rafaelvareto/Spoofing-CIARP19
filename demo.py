@@ -70,8 +70,8 @@ def main():
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, verbose=True)
-        spoofDet.trainPLS(components=10, iterations=1000) # spoofDet.trainSVM(kernel_type='linear', verbose=False)
-        spoofDet.save_model()
+        spoofDet.trainPLS(components=10, iterations=1000) 
+        # spoofDet.trainSVM(kernel_type='linear', verbose=False)
 
         # Check whether class is ready to continue
         assert('live' in spoofDet.get_classes())
@@ -80,7 +80,6 @@ def main():
         instances = spoofDet.get_classes()
         counter_dict = {label:0.0 for label in instances}
         mistake_dict = {label:0.0 for label in instances}
-        # results_dict = {label:list() for label in instances}
         
         # Define lists to plot charts
         result = dict()

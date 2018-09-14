@@ -216,7 +216,7 @@ class FaceSpoofing:
         nclasses = len(self.get_classes()) 
         self._models = DeepLearning.build_LeNet(width=96, height=96, depth=1, classes=nclasses) 
         self._type = 'CNN' 
-        train_labels = np_utils.to_categorical(self._labels, nclasses) 
-        # Continuar aqui...
-        self._models.fit(self._images, self._labels, batch_size=batch, nb_epoch=epoch, verbose=1) 
+        cat_labels = np_utils.to_categorical(self._labels, nclasses) 
+        self._models.fit(self._images, cat_labels, batch_size=batch, nb_epoch=epoch, verbose=1) 
         self._models.save_weights('cnn_model.npy', overwrite=True) 
+        # Continuar aqui...
