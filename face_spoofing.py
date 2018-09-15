@@ -34,6 +34,11 @@ class FaceSpoofing:
         self._vr_height = 1
         self._vr_width = 30
 
+    def __build_dictionary(self):
+        lab_dict = {label:number for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
+        num_dict = {number:label for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
+        self._dictionary = dict( list(lab_dict.items()) + list(num_dict.items()) )
+
     def __manage_results(self, dictionary, score_list):
         for (label, result) in score_list:
             if label in dictionary:
@@ -144,14 +149,14 @@ class FaceSpoofing:
             while(sample_video.isOpened()): 
                 ret, sample_frame = sample_video.read() 
                 if ret:
-                    scaled_image = cv.resize(sample_frame, (size[0], size[1]), interpolation=cv.INTER_AREA) 
+                    scaled_image = cv.resize(sample_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA) 
                     if frame_counter % frame_drop == 0: 
                         gray_image = self.get_gray_image(scaled_image) 
                         spec_image = self.gray2spec_pipeline(scaled_image) 
                         self._fourier.append(spec_image)
-                        if size[2] == 1:
+                        if self._size[2] == 1:
                             self._images.append(gray_image) 
-                        elif size[2] == 3:
+                        elif self._size[2] == 3:
                             self._images.append(scaled_image)
                         else:
                             raise ValueError('ERROR: Unusual number of channels given.')
@@ -177,27 +182,36 @@ class FaceSpoofing:
         else:
             raise ValueError('Error predicting probe image') 
 
-    def predict_video(self, probe_video, frame_drop=10):
-        if self._type == 'PLS' or self._type == 'SVM':
-            frame_counter = 0
-            class_dict = dict()
-            while(probe_video.isOpened()):
-                ret, probe_frame = probe_video.read()
-                if ret:
-                    if frame_counter % frame_drop == 0:
+    def predict_video(self, probe_video, frame_drop=10):        
+        frame_counter = 0
+        class_dict = dict()
+        while(probe_video.isOpened()):
+            ret, probe_frame = probe_video.read()
+            if ret:
+                if frame_counter % frame_drop == 0:
+                    if self._type == 'PLS' or self._type == 'SVM':
                         feature = self.gray2feat_pipeline(probe_frame)
                         results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                         labels = [model[1] for model in self._models]
                         scores = list(map(lambda left,right:(left,right), labels, results))
                         class_dict = self.__manage_results(class_dict, scores)
-                else:
-                    break
-                frame_counter += 1 
-            return self.__mean_and_sort(class_dict)
-        elif self._type == 'CNN': 
-            pass 
-        else:
-            raise ValueError('Error predicting probe video')
+                    elif self._type == 'CNN': 
+                        scaled_image = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
+                        gray_image = self.get_gray_image(scaled_image) 
+                        spec_image = self.gray2spec_pipeline(scaled_image)
+                        # if self._size[2] == 1:
+                        #     array_image = np.array(gray_image)
+                        # elif self._size[2] == 3:
+                        #     array_image = np.array(scaled_image)
+                        # results = self._models.predict(array_image.reshape(1, array_image.shape))
+                        # print(results)
+                        # CONTINUAR DESENVOLVENDO AQUI...
+                    else:
+                        raise ValueError('Error predicting probe video')
+            else:
+                break
+            frame_counter += 1 
+        return self.__mean_and_sort(class_dict)
 
     def save_model(self, file_name='model.npy'):
         np.save(file_name, [self._labels, self._models, self._type])
@@ -224,18 +238,13 @@ class FaceSpoofing:
             self._models.append((model, label))
         self.save_model(file_name='svm_model.npy') 
 
-    def __build_dictionary(self):
-        lab_dict = {label:number for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
-        num_dict = {number:label for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
-        self._dictionary = dict( list(lab_dict.items()) + list(num_dict.items()) )
-
     def trainCNN(self, batch=128, epoch=20): 
         self._type = 'CNN'
         self.__build_dictionary()
         int_labels = [self._dictionary[label] for label in self._labels]
         cat_labels = np_utils.to_categorical(int_labels, self.get_num_classes())
         self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes()) 
-        self._models.fit(self._images, cat_labels, batch_size=batch, nb_epoch=epoch, verbose=1)
-        self._models.save_weights('cnn_model.npy', overwrite=True) 
+        self._models.fit(np.array(self._images), np.array(cat_labels), batch_size=batch, epochs=epoch, verbose=1)
+        self._models.save_weights('cnn_model.h5', overwrite=True) 
         
         

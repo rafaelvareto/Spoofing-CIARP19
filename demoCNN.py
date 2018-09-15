@@ -44,7 +44,7 @@ def main():
     parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default='datasets/SiW-dataset/', type=str)
     parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='error_rates', type=str)
     parser.add_argument('-r', '--repetitions', help='Number of executions [10..INF]', required=False, default=10, type=int)
-    parser.add_argument('-t', '--train_set_size', help='Dataset percentage comprising training set [0..1]', required=False, default=0.35, type=float)
+    parser.add_argument('-t', '--train_set_size', help='Dataset percentage comprising training set [0..1]', required=False, default=0.55, type=float)
     
     # Storing in variables
     args = parser.parse_args()
@@ -70,7 +70,7 @@ def main():
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.obtain_video_images(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, size=(96,96,3), verbose=True)
-        spoofDet.trainCNN(batch=128, epoch=20)
+        spoofDet.trainCNN(batch=128, epoch=5)
 
         # Check whether class is ready to continue
         assert('live' in spoofDet.get_classes())
