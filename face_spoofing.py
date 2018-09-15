@@ -91,7 +91,7 @@ class FaceSpoofing:
             self._features.append(feature)
             self._labels.append(label)
 
-    def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=10, verbose=False):
+    def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=1, max_frames=60, verbose=False):
         for (path, label) in dataset_tuple:
             if verbose:
                 print(path, label)
@@ -100,7 +100,7 @@ class FaceSpoofing:
             sample_video = cv.VideoCapture(sample_path)
             while(sample_video.isOpened()):
                 ret, sample_frame = sample_video.read()
-                if ret:
+                if ret and frame_counter <= max_frames:
                     if frame_counter % frame_drop == 0:
                         feature = self.gray2feat_pipeline(sample_frame)
                         self._features.append(feature)
