@@ -142,9 +142,9 @@ class FaceSpoofing:
             class_dict = dict()
             while(probe_video.isOpened()):
                 ret, probe_frame = probe_video.read()
-                scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                 if ret:
                     if frame_counter % frame_drop == 0:
+                        scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         feature = self.gray2feat_pipeline(scaled_frame)
                         results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                         labels = [model[1] for model in self._models]
