@@ -34,3 +34,11 @@ class DeepLearning:
         model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
 
         return model
+
+    @staticmethod
+    def build_network_1(width, height, depth, nclasses, weightsPath=None):
+        pass
+
+    @staticmethod
+    def build_network_2(width, height, depth, nclasses, weightsPath=None):
+        pass

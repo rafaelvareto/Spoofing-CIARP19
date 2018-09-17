@@ -240,13 +240,14 @@ class FaceSpoofing:
             self._models.append((model, label))
         self.save_model(file_name='svm_model.npy') 
 
-    def trainCNN(self, batch=128, epoch=20): 
+    def trainCNN(self, batch=128, epoch=20, weightsPath=None): 
         self._type = 'CNN'
         self.__build_dictionary()
         int_labels = [self._dictionary[label] for label in self._labels]
         cat_labels = np_utils.to_categorical(int_labels, self.get_num_classes())
-        self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes()) 
-        self._models.fit(np.array(self._images), np.array(cat_labels), batch_size=batch, epochs=epoch, verbose=1)
-        self._models.save_weights('cnn_model.h5', overwrite=True) 
+        self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes(), weightsPath=weightsPath) 
+        if weightsPath is None:
+            self._models.fit(np.array(self._images), np.array(cat_labels), batch_size=batch, epochs=epoch, verbose=1)
+            self._models.save_weights('cnn_model.h5', overwrite=True) 
         
         
