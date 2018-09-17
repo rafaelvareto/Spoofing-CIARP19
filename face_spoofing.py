@@ -108,9 +108,9 @@ class FaceSpoofing:
             sample_video = cv.VideoCapture(sample_path)
             while(sample_video.isOpened()):
                 ret, sample_frame = sample_video.read()
-                scaled_frame = cv.resize(sample_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                 if ret and frame_counter <= max_frames:
                     if frame_counter % frame_drop == 0:
+                        scaled_frame = cv.resize(sample_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         feature = self.gray2feat_pipeline(scaled_frame)
                         self._features.append(feature)
                         self._labels.append(label)
