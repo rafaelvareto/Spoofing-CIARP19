@@ -90,14 +90,14 @@ def main():
         result['scores'] = list()
         
         # Predict samples
+        video_counter = 0
         for (path, label) in test_set:
-            print('>> ', path, label)
+            print(video_counter + 1, '>> ', path, label)
             counter_dict[label] += 1
             probe_path = os.path.join(FOLDER_PATH, path)
             probe_video = cv.VideoCapture(probe_path)
             scores = spoofDet.predict_video(probe_video, frame_drop=10)
             scores_dict = {label:value for (label,value) in scores}
-            
             # Generate ROC Curve
             if len(scores_dict):
                 if label == 'live':
@@ -107,11 +107,12 @@ def main():
                     result['labels'].append(-1)
                     result['scores'].append(scores_dict['live'])
                 print(scores_dict)
-
             # Increment ERROR values
             pred_label, pred_score = scores[0]
             if pred_label != label:
                 mistake_dict[label] += 1
+            # Increment counter
+            video_counter += 1
 
         # Generate APCER, BPCER
         error_dict = {label:mistake_dict[label]/counter_dict[label] for label in instances}
