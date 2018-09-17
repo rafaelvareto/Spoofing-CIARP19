@@ -83,15 +83,16 @@ class FaceSpoofing:
             cv.waitKey(1)
         return sample_feature
 
-    def obtain_image_features(self, folder_path, dataset_tuple):
+    def obtain_image_features(self, folder_path, dataset_tuple, file_name='image_features.npy'):
         for (path, label) in dataset_tuple:
             sample_path = os.path.join(folder_path, path)
             sample_image = cv.imread(sample_path, cv.IMREAD_COLOR)
             feature = self.gray2feat_pipeline(sample_image)
             self._features.append(feature)
             self._labels.append(label)
+        np.save(file_name, [self._features, self._labels])
 
-    def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=1, max_frames=60, verbose=False):
+    def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=1, max_frames=60, file_name='video_features.npy', verbose=False):
         for (path, label) in dataset_tuple:
             if verbose:
                 print(path, label)
@@ -108,6 +109,7 @@ class FaceSpoofing:
                 else:
                     break
                 frame_counter += 1
+            np.save(file_name, [self._features, self._labels])
 
     def load_model(self, file_name='model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
