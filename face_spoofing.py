@@ -38,6 +38,7 @@ class FaceSpoofing:
         lab_dict = {label:number for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
         num_dict = {number:label for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
         self._dictionary = dict( list(lab_dict.items()) + list(num_dict.items()) )
+        print(self._dictionary)
 
     def __manage_results(self, dictionary, score_list):
         for (label, result) in score_list:
@@ -199,13 +200,14 @@ class FaceSpoofing:
                         scaled_image = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         gray_image = self.get_gray_image(scaled_image) 
                         spec_image = self.gray2spec_pipeline(scaled_image)
-                        # if self._size[2] == 1:
-                        #     array_image = np.array(gray_image)
-                        # elif self._size[2] == 3:
-                        #     array_image = np.array(scaled_image)
-                        # results = self._models.predict(array_image.reshape(1, array_image.shape))
-                        # print(results)
-                        # CONTINUAR DESENVOLVENDO AQUI...
+                        if self._size[2] == 1:
+                            array_image = np.asarray([gray_image])
+                        elif self._size[2] == 3:
+                            array_image = np.asarray([scaled_image])
+                        results = self._models.predict(array_image).ravel()
+                        labels = [self._dictionary[index] for index in range(len(results))]
+                        scores = list(map(lambda left,right:(left,right), labels, results))
+                        class_dict = self.__manage_results(class_dict, scores)
                     else:
                         raise ValueError('Error predicting probe video')
             else:
