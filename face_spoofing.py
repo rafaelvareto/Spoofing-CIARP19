@@ -4,13 +4,15 @@ https://docs.opencv.org/2.4/doc/tutorials/core/discrete_fourier_transform/discre
 http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_transforms/py_fourier_transform/py_fourier_transform.html
 '''
 
+import copy
 import cv2 as cv
 import numpy as np
 import os
 import random
 
-# from keras.utils import np_utils
-# from deep_learning import DeepLearning
+from keras.models import Sequential 
+from keras.utils import np_utils
+from deep_learning import DeepLearning
 from descriptors import Descriptors
 
 
@@ -19,15 +21,24 @@ class FaceSpoofing:
         print('Face Spoofing Class')
         self._color_space = 0
         self._descriptor = Descriptors()
+        self._dictionary = dict()
         self._gaussian_var = 2.0
         self._features = list()
+        self._fourier = list()
         self._images = list()
         self._kernel_size = 7
         self._labels = list()
         self._models = None
+        self._size = (96, 96, 3)
         self._type = 'None'
         self._vr_height = 1
         self._vr_width = 30
+
+    def __build_dictionary(self):
+        lab_dict = {label:number for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
+        num_dict = {number:label for (number,label) in zip(range(self.get_num_classes()), self.get_classes())}
+        self._dictionary = dict( list(lab_dict.items()) + list(num_dict.items()) )
+        print(self._dictionary)
 
     def __manage_results(self, dictionary, score_list):
         for (label, result) in score_list:
@@ -45,6 +56,12 @@ class FaceSpoofing:
         new_list = [(key,float(np.mean(value))) for (key, value) in dictionary.items()]
         new_list.sort(key=lambda tup:tup[1], reverse=True)
         return new_list
+
+    def __channel_swap(self, image): 
+        spare = copy.copy(image)
+        image[:, :, 0] = spare[:, :, 2]
+        image[:, :, 2] = spare[:, :, 0]
+        return image
 
     def get_gray_image(self, color_img):
         return cv.cvtColor(color_img, cv.COLOR_BGR2GRAY)
@@ -70,6 +87,19 @@ class FaceSpoofing:
         mag_img = np.abs(fts_img)
         log_img = np.log(1 + mag_img)
         return log_img
+
+    def get_num_classes(self):
+        categories = set(self._labels)
+        return len(categories)
+
+    def gray2spec_pipeline(self, sample_image, show=False): 
+        sample_gray = self.get_gray_image(color_img=sample_image) 
+        sample_noise = self.get_residual_noise(gray_img=sample_gray, filter_type='median') 
+        sample_spectrum = self.get_fourier_spectrum(noise_img=sample_noise) 
+        if show: 
+            cv.imshow('spectrum', cv.normalize(sample_spectrum, 0, 255, cv.NORM_MINMAX)) 
+            cv.waitKey(1) 
+        return sample_spectrum 
 
     def gray2feat_pipeline(self, sample_image, show=False):
         sample_gray = self.get_gray_image(color_img=sample_image)
@@ -109,6 +139,33 @@ class FaceSpoofing:
                     break
                 frame_counter += 1
 
+    def obtain_video_images(self, folder_path, dataset_tuple, frame_drop=10, size=(96,96,3), verbose=False): 
+        self._size = size
+        for (path, label) in dataset_tuple: 
+            if verbose: 
+                print(path, label) 
+            frame_counter = 0 
+            sample_path = os.path.join(folder_path, path) 
+            sample_video = cv.VideoCapture(sample_path) 
+            while(sample_video.isOpened()): 
+                ret, sample_frame = sample_video.read() 
+                if ret:
+                    scaled_image = cv.resize(sample_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA) 
+                    if frame_counter % frame_drop == 0: 
+                        gray_image = self.get_gray_image(scaled_image) 
+                        spec_image = self.gray2spec_pipeline(scaled_image) 
+                        self._fourier.append(spec_image)
+                        if self._size[2] == 1:
+                            self._images.append(gray_image) 
+                        elif self._size[2] == 3:
+                            self._images.append(scaled_image)
+                        else:
+                            raise ValueError('ERROR: Unusual number of channels given.')
+                        self._labels.append(label) 
+                else: 
+                    break 
+                frame_counter += 1 
+
     def load_model(self, file_name='model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
 
@@ -121,55 +178,76 @@ class FaceSpoofing:
             scores = list(map(lambda left,right:(left,right), labels, results))
             class_dict = self.__manage_results(class_dict, scores)
             return self.__mean_and_sort(class_dict)
+        elif self._type == 'CNN': 
+            pass 
         else:
             raise ValueError('Error predicting probe image') 
 
-    def predict_video(self, probe_video, frame_drop=10):
-        if self._type == 'PLS' or self._type == 'SVM':
-            frame_counter = 0
-            class_dict = dict()
-            while(probe_video.isOpened()):
-                ret, probe_frame = probe_video.read()
-                if ret:
-                    if frame_counter % frame_drop == 0:
+    def predict_video(self, probe_video, frame_drop=10):        
+        frame_counter = 0
+        class_dict = dict()
+        while(probe_video.isOpened()):
+            ret, probe_frame = probe_video.read()
+            if ret:
+                if frame_counter % frame_drop == 0:
+                    if self._type == 'PLS' or self._type == 'SVM':
                         feature = self.gray2feat_pipeline(probe_frame)
                         results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                         labels = [model[1] for model in self._models]
                         scores = list(map(lambda left,right:(left,right), labels, results))
                         class_dict = self.__manage_results(class_dict, scores)
-                else:
-                    break
-                frame_counter += 1 
-            return self.__mean_and_sort(class_dict)
-        else:
-            raise ValueError('Error predicting probe video')
+                    elif self._type == 'CNN': 
+                        scaled_image = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
+                        gray_image = self.get_gray_image(scaled_image) 
+                        spec_image = self.gray2spec_pipeline(scaled_image)
+                        if self._size[2] == 1:
+                            array_image = np.asarray([gray_image])
+                        elif self._size[2] == 3:
+                            array_image = np.asarray([scaled_image])
+                        results = self._models.predict(array_image).ravel()
+                        labels = [self._dictionary[index] for index in range(len(results))]
+                        scores = list(map(lambda left,right:(left,right), labels, results))
+                        class_dict = self.__manage_results(class_dict, scores)
+                    else:
+                        raise ValueError('Error predicting probe video')
+            else:
+                break
+            frame_counter += 1 
+        return self.__mean_and_sort(class_dict)
 
     def save_model(self, file_name='model.npy'):
         np.save(file_name, [self._labels, self._models, self._type])
 
-    def trainDL(self, nclasses=3):
-        self._type = 'DL'
-        self._model = DeepLearning.build_LeNet(width=96, height=96, depth=1, classes=nclasses)
-        train_labels = np_utils.to_categorical(self._labels, nclasses)
-        pass
-
     def trainPLS(self, components=10, iterations=500):
-        self._models = list()
         self._type = 'PLS'
+        self._models = list()
         from sklearn.cross_decomposition import PLSRegression
         for label in self.get_classes():
             classifier = PLSRegression(n_components=components, max_iter=iterations)
             boolean_label = [label == lab for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
+        self.save_model(file_name='pls_model.npy') 
 
     def trainSVM(self, kernel_type='rbf', verbose=False):
-        self._models = list()
         self._type = 'SVM'
+        self._models = list()
         from sklearn.svm import SVR
         for label in self.get_classes():
             classifier = SVR(C=1.0, kernel=kernel_type, verbose=verbose)
             boolean_label = [label == lab for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
+        self.save_model(file_name='svm_model.npy') 
 
+    def trainCNN(self, batch=128, epoch=20, weightsPath=None): 
+        self._type = 'CNN'
+        self.__build_dictionary()
+        int_labels = [self._dictionary[label] for label in self._labels]
+        cat_labels = np_utils.to_categorical(int_labels, self.get_num_classes())
+        self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes(), weightsPath=weightsPath) 
+        if weightsPath is None:
+            self._models.fit(np.array(self._images), np.array(cat_labels), batch_size=batch, epochs=epoch, verbose=1)
+            self._models.save_weights('cnn_model.h5', overwrite=True) 
+        
+        

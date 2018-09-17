@@ -69,9 +69,8 @@ def main():
 
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
-        spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, verbose=True)
-        spoofDet.trainPLS(components=10, iterations=1000) 
-        # spoofDet.trainSVM(kernel_type='linear', verbose=False)
+        spoofDet.obtain_video_images(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, size=(96,96,3), verbose=True)
+        spoofDet.trainCNN(batch=128, epoch=5)
 
         # Check whether class is ready to continue
         assert('live' in spoofDet.get_classes())
@@ -132,10 +131,6 @@ def main():
         MyPlots.plt_roc_curves([roc_data,])
         plt.savefig(CHART_PATH)
         plt.close()
-                
-    # current_video = Video()
-    # current_video.set_input_video(VIDEO_PATH)
-    # current_video.play(spoofer=spoofDet, delay=1)
 
 if __name__ == "__main__":
     main()
