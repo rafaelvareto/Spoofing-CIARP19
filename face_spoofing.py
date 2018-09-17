@@ -97,11 +97,12 @@ class FaceSpoofing:
         np.save(file_name, [self._features, self._labels])
 
     def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=1, max_frames=60, new_size=None, file_name='video_features.npy', verbose=False):
+        video_counter = 0
         if new_size is not None:
             self._size = new_size
         for (path, label) in dataset_tuple:
             if verbose:
-                print(path, label)
+                print(video_counter + 1, path, label)
             frame_counter = 0
             sample_path = os.path.join(folder_path, path)
             sample_video = cv.VideoCapture(sample_path)
@@ -116,6 +117,7 @@ class FaceSpoofing:
                 else:
                     break
                 frame_counter += 1
+            video_counter += 1
             np.save(file_name, [self._features, self._labels])
 
     def load_model(self, file_name='model.npy'):
