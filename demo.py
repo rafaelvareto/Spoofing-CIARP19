@@ -71,7 +71,7 @@ def main():
 
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
-        spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, max_frames=60, verbose=True)
+        spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, max_frames=60, new_size=(400,300), verbose=True)
         spoofDet.trainPLS(components=10, iterations=1000) # spoofDet.trainSVM(kernel_type='linear', verbose=False)
         spoofDet.save_model()
 
