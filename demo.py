@@ -13,6 +13,8 @@ from face_spoofing import FaceSpoofing
 from myPlots import MyPlots
 from video import Video
 
+HOME = os.path.expanduser("~")
+
 def load_txt_file(file_name):
     this_file = open(file_name, 'r')
     this_list = list()
@@ -39,21 +41,21 @@ def split_train_test_sets(complete_tuple_list, train_set_size=0.8):
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
-    parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='ROC_curve.pdf', type=str)
-    parser.add_argument('-d', '--direction_path', help='Path to video txt file', required=False, default='datasets/SiW-dataset/directions-3-small.txt', type=str)
-    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default='datasets/SiW-dataset/', type=str)
-    parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='error_rates', type=str)
+    parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release"), type=str)
+    parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='saves/error_rates', type=str)
     parser.add_argument('-r', '--repetitions', help='Number of executions [10..INF]', required=False, default=10, type=int)
-    parser.add_argument('-t', '--train_set_size', help='Dataset percentage comprising training set [0..1]', required=False, default=0.55, type=float)
+    parser.add_argument('-te', '--testing_file', help='Path to testing txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/test_videos.txt"), type=str)
+    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/train_videos.txt"), type=str)
     
     # Storing in variables
     args = parser.parse_args()
     CHART_PATH = str(args.chart_path)
-    DIRECT_PATH = str(args.direction_path)
     ERROR_OUTCOME = str(args.error_outcome)
     FOLDER_PATH = str(args.folder_path)
     REPETITIONS = int(args.repetitions)
-    TRAIN_SIZE = float(args.train_set_size)
+    TEST_FILE = str(args.testing_file)
+    TRAIN_FILE = str(args.training_file)
 
     # Store all-interation results
     result_errors = dict()
@@ -64,8 +66,8 @@ def main():
         print('> ITERATION ' + str(index + 1))
 
         # Split dataset into train and test sets
-        complete_set = load_txt_file(file_name=DIRECT_PATH)
-        train_set, test_set = split_train_test_sets(complete_tuple_list=complete_set, train_set_size=TRAIN_SIZE)
+        test_set = load_txt_file(file_name=TEST_FILE)
+        train_set = load_txt_file(file_name=TRAIN_FILE)
 
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
@@ -87,14 +89,14 @@ def main():
         result['scores'] = list()
         
         # Predict samples
+        video_counter = 0
         for (path, label) in test_set:
-            print('>> ', path, label)
+            print(video_counter + 1, '>> ', path, label)
             counter_dict[label] += 1
             probe_path = os.path.join(FOLDER_PATH, path)
             probe_video = cv.VideoCapture(probe_path)
             scores = spoofDet.predict_video(probe_video, frame_drop=10)
             scores_dict = {label:value for (label,value) in scores}
-            
             # Generate ROC Curve
             if len(scores_dict):
                 if label == 'live':
@@ -104,11 +106,12 @@ def main():
                     result['labels'].append(-1)
                     result['scores'].append(scores_dict['live'])
                 print(scores_dict)
-
             # Increment ERROR values
             pred_label, pred_score = scores[0]
             if pred_label != label:
                 mistake_dict[label] += 1
+            # Increment counter
+            video_counter += 1
 
         # Generate APCER, BPCER
         error_dict = {label:mistake_dict[label]/counter_dict[label] for label in instances}
@@ -122,7 +125,7 @@ def main():
         # Save data to files
         result_labels.append(result['labels'])
         result_scores.append(result['scores'])
-        np.save('data.npy', [result_errors, result_labels, result_scores])
+        np.save('saves/data.npy', [result_errors, result_labels, result_scores])
         with open(ERROR_OUTCOME + '.json', 'w') as out_file:
             out_file.write(json.dumps(result_errors))
 

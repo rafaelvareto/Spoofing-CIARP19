@@ -29,7 +29,7 @@ class FaceSpoofing:
         self._kernel_size = 7
         self._labels = list()
         self._models = None
-        self._size = (96, 96, 3)
+        self._size = (640, 360)
         self._type = 'None'
         self._vr_height = 1
         self._vr_width = 30
@@ -113,66 +113,50 @@ class FaceSpoofing:
             cv.waitKey(1)
         return sample_feature
 
-    def obtain_image_features(self, folder_path, dataset_tuple):
+    def obtain_image_features(self, folder_path, dataset_tuple, new_size=None, file_name='saves/image_features.npy'):
+        if new_size is not None:
+            self._size = new_size
         for (path, label) in dataset_tuple:
             sample_path = os.path.join(folder_path, path)
             sample_image = cv.imread(sample_path, cv.IMREAD_COLOR)
-            feature = self.gray2feat_pipeline(sample_image)
+            scaled_image = cv.resize(sample_image, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
+            feature = self.gray2feat_pipeline(scaled_image)
             self._features.append(feature)
             self._labels.append(label)
+        np.save(file_name, [self._features, self._labels])
 
-    def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=10, verbose=False):
+    def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=1, max_frames=60, new_size=None, file_name='saves/video_features.npy', verbose=False):
+        video_counter = 0
+        if new_size is not None:
+            self._size = new_size
         for (path, label) in dataset_tuple:
             if verbose:
-                print(path, label)
+                print(video_counter + 1, path, label)
             frame_counter = 0
             sample_path = os.path.join(folder_path, path)
             sample_video = cv.VideoCapture(sample_path)
             while(sample_video.isOpened()):
                 ret, sample_frame = sample_video.read()
-                if ret:
+                if ret and frame_counter <= max_frames:
                     if frame_counter % frame_drop == 0:
-                        feature = self.gray2feat_pipeline(sample_frame)
+                        scaled_frame = cv.resize(sample_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
+                        feature = self.gray2feat_pipeline(scaled_frame)
                         self._features.append(feature)
                         self._labels.append(label)
                 else:
                     break
                 frame_counter += 1
+            video_counter += 1
+            np.save(file_name, [self._features, self._labels])
 
-    def obtain_video_images(self, folder_path, dataset_tuple, frame_drop=10, size=(96,96,3), verbose=False): 
-        self._size = size
-        for (path, label) in dataset_tuple: 
-            if verbose: 
-                print(path, label) 
-            frame_counter = 0 
-            sample_path = os.path.join(folder_path, path) 
-            sample_video = cv.VideoCapture(sample_path) 
-            while(sample_video.isOpened()): 
-                ret, sample_frame = sample_video.read() 
-                if ret:
-                    scaled_image = cv.resize(sample_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA) 
-                    if frame_counter % frame_drop == 0: 
-                        gray_image = self.get_gray_image(scaled_image) 
-                        spec_image = self.gray2spec_pipeline(scaled_image) 
-                        self._fourier.append(spec_image)
-                        if self._size[2] == 1:
-                            self._images.append(gray_image) 
-                        elif self._size[2] == 3:
-                            self._images.append(scaled_image)
-                        else:
-                            raise ValueError('ERROR: Unusual number of channels given.')
-                        self._labels.append(label) 
-                else: 
-                    break 
-                frame_counter += 1 
-
-    def load_model(self, file_name='model.npy'):
+    def load_model(self, file_name='saves/model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
 
     def predict_image(self, probe_image):
         if self._type == 'PLS' or self._type == 'SVM':
             class_dict = dict()
-            feature = self.gray2feat_pipeline(probe_image)
+            scaled_image = cv.resize(probe_image, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
+            feature = self.gray2feat_pipeline(scaled_image)
             results = [float(model[0].predict(np.array([feature]))) for model in self._models]
             labels = [model[1] for model in self._models]
             scores = list(map(lambda left,right:(left,right), labels, results))
@@ -183,15 +167,16 @@ class FaceSpoofing:
         else:
             raise ValueError('Error predicting probe image') 
 
-    def predict_video(self, probe_video, frame_drop=10):        
-        frame_counter = 0
-        class_dict = dict()
-        while(probe_video.isOpened()):
-            ret, probe_frame = probe_video.read()
-            if ret:
-                if frame_counter % frame_drop == 0:
-                    if self._type == 'PLS' or self._type == 'SVM':
-                        feature = self.gray2feat_pipeline(probe_frame)
+    def predict_video(self, probe_video, frame_drop=10):
+        if self._type == 'PLS' or self._type == 'SVM':
+            frame_counter = 0
+            class_dict = dict()
+            while(probe_video.isOpened()):
+                ret, probe_frame = probe_video.read()
+                if ret:
+                    if frame_counter % frame_drop == 0:
+                        scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
+                        feature = self.gray2feat_pipeline(scaled_frame)
                         results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                         labels = [model[1] for model in self._models]
                         scores = list(map(lambda left,right:(left,right), labels, results))
@@ -215,7 +200,7 @@ class FaceSpoofing:
             frame_counter += 1 
         return self.__mean_and_sort(class_dict)
 
-    def save_model(self, file_name='model.npy'):
+    def save_model(self, file_name='saves/model.npy'):
         np.save(file_name, [self._labels, self._models, self._type])
 
     def trainPLS(self, components=10, iterations=500):
