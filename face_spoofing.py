@@ -84,7 +84,7 @@ class FaceSpoofing:
             cv.waitKey(1)
         return sample_feature
 
-    def obtain_image_features(self, folder_path, dataset_tuple, new_size=None, file_name='image_features.npy'):
+    def obtain_image_features(self, folder_path, dataset_tuple, new_size=None, file_name='saves/image_features.npy'):
         if new_size is not None:
             self._size = new_size
         for (path, label) in dataset_tuple:
@@ -96,7 +96,7 @@ class FaceSpoofing:
             self._labels.append(label)
         np.save(file_name, [self._features, self._labels])
 
-    def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=1, max_frames=60, new_size=None, file_name='video_features.npy', verbose=False):
+    def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=1, max_frames=60, new_size=None, file_name='saves/video_features.npy', verbose=False):
         video_counter = 0
         if new_size is not None:
             self._size = new_size
@@ -120,7 +120,7 @@ class FaceSpoofing:
             video_counter += 1
             np.save(file_name, [self._features, self._labels])
 
-    def load_model(self, file_name='model.npy'):
+    def load_model(self, file_name='saves/model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
 
     def predict_image(self, probe_image):
@@ -157,7 +157,7 @@ class FaceSpoofing:
         else:
             raise ValueError('Error predicting probe video')
 
-    def save_model(self, file_name='model.npy'):
+    def save_model(self, file_name='saves/model.npy'):
         np.save(file_name, [self._labels, self._models, self._type])
 
     def trainDL(self, nclasses=3):
