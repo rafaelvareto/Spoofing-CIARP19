@@ -13,6 +13,7 @@
 *.png
 *.pdf
 *.tar
+*.txt
 *.zip
 
 /datasets/
