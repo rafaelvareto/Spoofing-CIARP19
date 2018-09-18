@@ -121,8 +121,9 @@ class FaceSpoofing:
             sample_image = cv.imread(sample_path, cv.IMREAD_COLOR)
             scaled_image = cv.resize(sample_image, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
             feature = self.gray2feat_pipeline(scaled_image)
-            self._features.append(feature)
-            self._labels.append(label)
+            if not np.any(np.isnan(feature)):
+                self._features.append(feature)
+                self._labels.append(label)
         np.save(file_name, [self._features, self._labels])
 
     def obtain_video_features(self, folder_path, dataset_tuple, frame_drop=1, max_frames=60, new_size=None, file_name='saves/video_features.npy', verbose=False):
@@ -141,8 +142,9 @@ class FaceSpoofing:
                     if frame_counter % frame_drop == 0:
                         scaled_frame = cv.resize(sample_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         feature = self.gray2feat_pipeline(scaled_frame)
-                        self._features.append(feature)
-                        self._labels.append(label)
+                        if not np.any(np.isnan(feature)):
+                            self._features.append(feature)
+                            self._labels.append(label)
                 else:
                     break
                 frame_counter += 1
@@ -168,19 +170,20 @@ class FaceSpoofing:
             raise ValueError('Error predicting probe image') 
 
     def predict_video(self, probe_video, frame_drop=10):
-        if self._type == 'PLS' or self._type == 'SVM':
-            frame_counter = 0
-            class_dict = dict()
-            while(probe_video.isOpened()):
-                ret, probe_frame = probe_video.read()
-                if ret:
-                    if frame_counter % frame_drop == 0:
+        frame_counter = 0
+        class_dict = dict()
+        while(probe_video.isOpened()):
+            ret, probe_frame = probe_video.read()
+            if ret:
+                if frame_counter % frame_drop == 0:
+                    if self._type == 'PLS' or self._type == 'SVM':
                         scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         feature = self.gray2feat_pipeline(scaled_frame)
-                        results = [float(model[0].predict(np.array([feature]))) for model in self._models]
-                        labels = [model[1] for model in self._models]
-                        scores = list(map(lambda left,right:(left,right), labels, results))
-                        class_dict = self.__manage_results(class_dict, scores)
+                        if not np.any(np.isnan(feature)): 
+                            results = [float(model[0].predict(np.array([feature]))) for model in self._models]
+                            labels = [model[1] for model in self._models]
+                            scores = list(map(lambda left,right:(left,right), labels, results))
+                            class_dict = self.__manage_results(class_dict, scores)
                     elif self._type == 'CNN': 
                         scaled_image = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         gray_image = self.get_gray_image(scaled_image) 
@@ -212,7 +215,7 @@ class FaceSpoofing:
             boolean_label = [label == lab for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
-        self.save_model(file_name='pls_model.npy') 
+        self.save_model(file_name='saves/pls_model.npy') 
 
     def trainSVM(self, kernel_type='rbf', verbose=False):
         self._type = 'SVM'
@@ -223,7 +226,7 @@ class FaceSpoofing:
             boolean_label = [label == lab for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
-        self.save_model(file_name='svm_model.npy') 
+        self.save_model(file_name='saves/svm_model.npy') 
 
     def trainCNN(self, batch=128, epoch=20, weightsPath=None): 
         self._type = 'CNN'
@@ -233,6 +236,6 @@ class FaceSpoofing:
         self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes(), weightsPath=weightsPath) 
         if weightsPath is None:
             self._models.fit(np.array(self._images), np.array(cat_labels), batch_size=batch, epochs=epoch, verbose=1)
-            self._models.save_weights('cnn_model.h5', overwrite=True) 
+            self._models.save_weights('saves/cnn_model.h5', overwrite=True) 
         
         
