@@ -113,6 +113,17 @@ class FaceSpoofing:
             cv.waitKey(1)
         return sample_feature
 
+    def load_features(self, file_name='saves/train_feats.py', new_size=None):
+        if new_size is not None:
+            self._size = new_size
+        features, labels = np.load(file_name)
+        for (feat,lab) in zip(features, labels):
+            self._features.append(feat)
+            self._labels.append(lab)
+
+    def load_model(self, file_name='saves/model.npy'):
+        self._labels, self._models, self._type = np.load(file_name)
+
     def obtain_image_features(self, folder_path, dataset_tuple, new_size=None, file_name='saves/image_features.npy'):
         if new_size is not None:
             self._size = new_size
@@ -150,9 +161,6 @@ class FaceSpoofing:
                 frame_counter += 1
             video_counter += 1
             np.save(file_name, [self._features, self._labels])
-
-    def load_model(self, file_name='saves/model.npy'):
-        self._labels, self._models, self._type = np.load(file_name)
 
     def predict_image(self, probe_image):
         if self._type == 'PLS' or self._type == 'SVM':
@@ -203,13 +211,17 @@ class FaceSpoofing:
             frame_counter += 1 
         return self.__mean_and_sort(class_dict)
 
+    def save_features(self, file_name='saves/train_feats.py'):
+        np.save(file_name, [self._features, self._labels])
+
     def save_model(self, file_name='saves/model.npy'):
         np.save(file_name, [self._labels, self._models, self._type])
 
     def trainPLS(self, components=10, iterations=500):
+        from sklearn.cross_decomposition import PLSRegression
         self._type = 'PLS'
         self._models = list()
-        from sklearn.cross_decomposition import PLSRegression
+        print('Training PLS classifiers')
         for label in self.get_classes():
             classifier = PLSRegression(n_components=components, max_iter=iterations)
             boolean_label = [label == lab for lab in self._labels]
@@ -218,9 +230,10 @@ class FaceSpoofing:
         self.save_model(file_name='saves/pls_model.npy') 
 
     def trainSVM(self, kernel_type='rbf', verbose=False):
+        from sklearn.svm import SVR
         self._type = 'SVM'
         self._models = list()
-        from sklearn.svm import SVR
+        print('Training SVM classifiers')
         for label in self.get_classes():
             classifier = SVR(C=1.0, kernel=kernel_type, verbose=verbose)
             boolean_label = [label == lab for lab in self._labels]
@@ -231,6 +244,7 @@ class FaceSpoofing:
     def trainCNN(self, batch=128, epoch=20, weightsPath=None): 
         self._type = 'CNN'
         self.__build_dictionary()
+        print('Training CNN classifiers')
         int_labels = [self._dictionary[label] for label in self._labels]
         cat_labels = np_utils.to_categorical(int_labels, self.get_num_classes())
         self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes(), weightsPath=weightsPath) 
