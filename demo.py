@@ -108,9 +108,10 @@ def main():
                     result['scores'].append(scores_dict['live'])
                 print(scores_dict)
             # Increment ERROR values
-            pred_label, pred_score = scores[0]
-            if pred_label != label:
-                mistake_dict[label] += 1
+            if len(scores):
+                pred_label, pred_score = scores[0]
+                if pred_label != label:
+                    mistake_dict[label] += 1
             # Increment counter
             video_counter += 1
 
