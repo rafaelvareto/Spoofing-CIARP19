@@ -53,8 +53,10 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
         if verbose:
             print(video_counter + 1, path, label)
         frame_counter = 0
+        probe_fourcc = cv.VideoWriter_fourcc(*'MP42') 
         read_path = os.path.join(folder_path, path)
         read_video = cv.VideoCapture(read_path)
+        tiny_video = cv.VideoWriter(read_path.replace('.mov', '_tiny.avi'), probe_fourcc, 20.0, size, isColor=True)
         while(read_video.isOpened()):
             ret, read_frame = read_video.read()
             if ret:
@@ -66,6 +68,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
                     read_featA = descriptor.get_hog_feature(image=read_greyd, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
                     read_featB = descriptor.get_glcm_feature(image=read_spect, dists=[1,2], shades=20)
                     read_feats = np.concatenate((read_featA, read_featB), axis=0)
+                    tiny_video.write(read_color)
                     if not np.any(np.isnan(read_feats)):
                         feature_list.append(read_feats)
                         label_list.append(label)
@@ -75,6 +78,8 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
             frame_counter += 1
         video_counter += 1
         np.save(file_name, [feature_list, label_list, path_list])
+    read_video.release()
+    tiny_video.release()
 
 def main():
     # Handle arguments
