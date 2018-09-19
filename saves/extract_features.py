@@ -42,7 +42,7 @@ def get_residual_noise(gray_img, filter_type='median', kernel_size=7, gaussian_v
         raise ValueError('ERROR: Two smoothing methods available: median and gaussian')
     return noise
 
-def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,300), file_name='video_features.npy', verbose=False):
+def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,300), file_name='video_features.npy', show=False, verbose=False):
     descriptor = Descriptors()
     feature_list = list()
     label_list = list()
@@ -56,6 +56,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
         probe_fourcc = cv.VideoWriter_fourcc(*'MP42') 
         read_path = os.path.join(folder_path, path)
         read_video = cv.VideoCapture(read_path)
+        spec_video = cv.VideoWriter(read_path.replace('.mov', '_spec.avi'), probe_fourcc, 20.0, size, isColor=False)
         tiny_video = cv.VideoWriter(read_path.replace('.mov', '_tiny.avi'), probe_fourcc, 20.0, size, isColor=True)
         while(read_video.isOpened()):
             ret, read_frame = read_video.read()
@@ -68,7 +69,13 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
                     read_featA = descriptor.get_hog_feature(image=read_greyd, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
                     read_featB = descriptor.get_glcm_feature(image=read_spect, dists=[1,2], shades=20)
                     read_feats = np.concatenate((read_featA, read_featB), axis=0)
+                    read_spect = (read_spect / np.max(read_spect)) * 255
+                    spec_video.write(read_spect.astype('uint8'))
                     tiny_video.write(read_color)
+                    if show:
+                        cv.imshow('face', read_color)
+                        cv.imshow('spec', cv.normalize(read_spect, 0, 255, cv.NORM_MINMAX))
+                        cv.waitKey(1)
                     if not np.any(np.isnan(read_feats)):
                         feature_list.append(read_feats)
                         label_list.append(label)
@@ -77,8 +84,10 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
                 break
             frame_counter += 1
         video_counter += 1
+        return
         np.save(file_name, [feature_list, label_list, path_list])
     read_video.release()
+    spec_video.release()
     tiny_video.release()
 
 def main():
