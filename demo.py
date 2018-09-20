@@ -71,7 +71,8 @@ def main():
 
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
-        spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, new_size=(400,300), verbose=True)
+        # spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, new_size=(400,300), verbose=True)
+        spoofDet.load_features(file_name='saves/protocol_01_train.npy_new.npy', new_size=(400,300))
         spoofDet.trainPLS(components=10, iterations=1000) 
         # spoofDet.trainSVM(kernel_type='linear', verbose=False)
 
@@ -107,9 +108,10 @@ def main():
                     result['scores'].append(scores_dict['live'])
                 print(scores_dict)
             # Increment ERROR values
-            pred_label, pred_score = scores[0]
-            if pred_label != label:
-                mistake_dict[label] += 1
+            if len(scores):
+                pred_label, pred_score = scores[0]
+                if pred_label != label:
+                    mistake_dict[label] += 1
             # Increment counter
             video_counter += 1
 

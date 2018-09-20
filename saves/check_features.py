@@ -1,19 +1,24 @@
 import numpy as np
 
 FILENAME = 'protocol_01_train.npy'
+removeNAN = True
 
-features, labels = np.load(FILENAME)
+if removeNAN:
+    print('Loading numpy file')
+    features, labels = np.load(FILENAME)
+    
+    print('FEATURES', len(features))
+    new_features = list()
+    new_labels = list()
+    for feat,lab in zip(features, labels):
+        if not np.any(np.isnan(feat)):
+            new_features.append(feat.tolist())
+            new_labels.append(lab)
+        else:
+            print(lab, feat[0:5], len(feat))
 
-print('FEATURES', len(features))
-new_features = list()
-new_labels = list()
-for (idx,(feat,lab)) in enumerate(zip(features, labels)):
-    if not np.any(np.isnan(feat)):
-        new_features.append(feat)
-        new_labels.append(lab)
-    else:
-        print(idx, lab, feat[0:5], len(feat))
-
-np.save(FILENAME + '_new', [new_features, new_labels])
-        
+    print('Saving numpy file')
+    np.save(FILENAME + '_new', [new_features, new_labels])
+else:
+    pass
 print('DONE')
