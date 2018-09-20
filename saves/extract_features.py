@@ -84,7 +84,6 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
                 break
             frame_counter += 1
         video_counter += 1
-        return
         np.save(file_name, [feature_list, label_list, path_list])
     read_video.release()
     spec_video.release()
