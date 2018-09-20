@@ -93,12 +93,14 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from Dataset')
     parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release"), type=str)
+    parser.add_argument('-m', '--mode_exec', help='Choose to extract feature from Train or Test files', required=False, default='None', type=str)
     parser.add_argument('-te', '--testing_file', help='Path to testing txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/test_videos.txt"), type=str)
     parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/train_videos.txt"), type=str)
 
     # Storing in variables
     args = parser.parse_args()
     FOLDER_PATH = str(args.folder_path)
+    MODE_EXEC = str(args.mode_exec).lower()
     TEST_FILE = str(args.testing_file)
     TRAIN_FILE = str(args.training_file)
 
@@ -106,8 +108,13 @@ def main():
     test_set = load_txt_file(file_name=TEST_FILE)
     train_set = load_txt_file(file_name=TRAIN_FILE)
 
-    obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(400,300), file_name='SiW-train.npy', verbose=True)
-    obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(400,300), file_name='SiW-test.npy', verbose=True)
+    if MODE_EXEC == 'train':
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(400,300), file_name='SiW-train.npy', verbose=True)
+    elif MODE_EXEC == 'elif':
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(400,300), file_name='SiW-test.npy', verbose=True)
+    elif MODE_EXEC == 'none':
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(400,300), file_name='SiW-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(400,300), file_name='SiW-test.npy', verbose=True)
 
 if __name__ == "__main__":
     main()
