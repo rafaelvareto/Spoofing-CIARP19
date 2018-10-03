@@ -59,8 +59,8 @@ def main():
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
     parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='saves/error_rates', type=str)
-    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe-50p.npy"), type=str)
-    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train-50p.npy"), type=str)
+    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe-50p-new.npy"), type=str)
+    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train-50p-new.npy"), type=str)
     
     # Storing in variables
     args = parser.parse_args()
