@@ -15,20 +15,21 @@ from video import Video
 
 HOME = os.path.expanduser("~")
 
-def tuple_to_dict(tuple_list, number_frames=None):
+def tuple_to_dict(file_name, max_frames=None):
+    print('Loading ', file_name)
     new_dict = dict()
-    for triplet in tuple_list:
-        print(len(tuple_list), triplet)
-        x_data = triplet[0]
-        y_data = triplet[1]
-        z_data = triplet[2]
-        print(x_data[0:5], y_data, z_data)
-        exit 
-        if z_data in new_dict:
+    feature_list, label_list, path_list = np.load(file_name)
+    print(feature_list.shape, label_list.shape, path_list.shape)
+    for triplet in zip(feature_list, label_list, path_list):
+        x_data, y_data, z_data = triplet[0], triplet[1], triplet[2]
+        if (z_data in new_dict) and (max_frames is None):
             new_dict[z_data].append(x_data)
+        elif (z_data in new_dict) and (max_frames is not None):
+            if len(new_dict[z_data]) < max_frames:
+                new_dict[z_data].append(x_data)
         else:
             new_dict[z_data] = [x_data]
-        return new_dict
+    return new_dict
 
 def load_txt_file(file_name):
     this_file = open(file_name, 'r')
@@ -74,10 +75,8 @@ def main():
     result_scores = list()
 
     # Split dataset into train and test sets
-    probe_set = np.load(PROBE_FILE)
-    train_set = np.load(TRAIN_FILE)
-    probe_dict = tuple_to_dict(probe_set)
-    train_dict = tuple_to_dict(train_set)
+    train_dict = tuple_to_dict(TRAIN_FILE, max_frames=60)
+    probe_dict = tuple_to_dict(PROBE_FILE, max_frames=None)
 
     # Instantiate SpoofDet class
     spoofDet = FaceSpoofing()
