@@ -115,7 +115,7 @@ class FaceSpoofing:
 
     def import_features(self, feature_dict):
         for ((label, path), features) in feature_dict.items():
-            print('Imported Features: ', (label, path))
+            print('Imported Features: ', (label, path), len(features))
             for feat in features:
                 self._features.append(feat)
                 self._labels.append(label)
