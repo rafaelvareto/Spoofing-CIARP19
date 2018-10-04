@@ -162,7 +162,20 @@ class FaceSpoofing:
             np.save(file_name, [self._features, self._labels])
 
     def predict_feature(self, probe_features):
-        pass
+        class_dict = dict()
+        if self._type == 'PLS' or self._type == 'SVM':
+            for feature in probe_features:
+                results = [float(model[0].predict(np.array([feature]))) for model in self._models]
+                labels = [model[1] for model in self._models]
+                scores = list(map(lambda left,right:(left,right), labels, results))
+                class_dict = self.__manage_results(class_dict, scores)
+        elif self._type == 'CNN':
+            for feature in probe_features:
+                results = self._models.predict(array_image).ravel()
+                labels = [self._dictionary[index] for index in range(len(results))]
+                scores = list(map(lambda left,right:(left,right), labels, results))
+                class_dict = self.__manage_results(class_dict, scores)
+        return self.__mean_and_sort(class_dict)
 
     def predict_image(self, probe_image):
         if self._type == 'PLS' or self._type == 'SVM':

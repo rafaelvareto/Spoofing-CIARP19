@@ -59,8 +59,8 @@ def main():
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
     parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='saves/error_rates', type=str)
-    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe-50p-new.npy"), type=str)
-    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train-50p-new.npy"), type=str)
+    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe.npy"), type=str)
+    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train.npy"), type=str)
     
     # Storing in variables
     args = parser.parse_args()
@@ -84,10 +84,66 @@ def main():
     spoofDet.trainPLS(components=10, iterations=1000) 
     # spoofDet.trainSVM(kernel_type='linear', verbose=False)
 
-
     # Check whether class is ready to continue
     print('Classes: ', spoofDet.get_classes())
     assert('live' in spoofDet.get_classes())
+
+    # Define APCER/BPCER variables
+    instances = spoofDet.get_classes()
+    counter_dict = {label:0.0 for label in instances}
+    mistake_dict = {label:0.0 for label in instances}
+
+    # Define lists to plot charts
+    result = dict()
+    result['labels'] = list()
+    result['scores'] = list()
+
+    # Predict samples
+    video_counter = 0
+    for (label, path) in probe_dict.keys():
+        print(video_counter + 1, '>> ', path, label)
+        counter_dict[label] += 1
+        scores = spoofDet.predict_feature(probe_dict[(label, path)])
+        scores_dict = {label:value for (label,value) in scores}
+        # Generate ROC Curve
+        if len(scores_dict):
+            if label == 'live':
+                result['labels'].append(+1)
+                result['scores'].append(scores_dict['live'])
+            else:
+                result['labels'].append(-1)
+                result['scores'].append(scores_dict['live'])
+            print(scores_dict)
+        # Increment ERROR values
+        if len(scores):
+            pred_label, pred_score = scores[0]
+            if pred_label != label:
+                mistake_dict[label] += 1
+        # Increment counter
+        video_counter += 1
+
+    # Generate APCER, BPCER
+    error_dict = {label:mistake_dict[label]/counter_dict[label] for label in instances}
+    for label in error_dict.keys():
+        if label in result_errors:
+            result_errors[label].append(error_dict[label])
+        else:
+            result_errors[label] = [error_dict[label]]
+    print("ERROR RESULT", error_dict)
+
+    # Save data to files
+    result_labels.append(result['labels'])
+    result_scores.append(result['scores'])
+    np.save('saves/data.npy', [result_errors, result_labels, result_scores])
+    with open(ERROR_OUTCOME + '.json', 'w') as out_file:
+        out_file.write(json.dumps(result_errors))
+
+    # Plot figures
+    plt.figure()
+    roc_data = MyPlots.merge_roc_curves(result_labels, result_scores, name='ROC Average')
+    MyPlots.plt_roc_curves([roc_data,])
+    plt.savefig(CHART_PATH)
+    plt.close()
 
 
 if __name__ == "__main__":
