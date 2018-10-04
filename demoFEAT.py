@@ -38,13 +38,15 @@ def split_train_test_sets(tuple_list, train_set_size=0.8):
         test_tuple.extend([(path, label) for path in test_set])
     return train_tuple, test_tuple
 
-def tuple_to_dict(file_name, max_frames=None):
+def tuple_to_dict(file_name, max_frames=None, protocol=None):
     print('Loading ', file_name)
     new_dict = dict()
     feature_list, label_list, path_list = np.load(file_name)
     assert(feature_list.shape == label_list.shape == path_list.shape)
     for triplet in zip(feature_list, label_list, path_list):
         x_data, y_data, z_data = triplet[0], triplet[1], triplet[2]
+        if protocol == 'one' and y_data != 'live':
+            y_data = 'spoof'
         if ((y_data, z_data) in new_dict) and (max_frames is None):
             new_dict[(y_data, z_data)].append(x_data)
         elif ((y_data, z_data) in new_dict) and (max_frames is not None):
@@ -61,6 +63,7 @@ def main():
     parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='saves/error_rates', type=str)
     parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe.npy"), type=str)
     parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train.npy"), type=str)
+    parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default="one", type=str)
     
     # Storing in variables
     args = parser.parse_args()
@@ -68,6 +71,7 @@ def main():
     ERROR_OUTCOME = str(args.error_outcome)
     PROBE_FILE = str(args.probe_file)
     TRAIN_FILE = str(args.train_file)
+    SCENARIO = str(args.scenario)
 
     # Store all-interation results
     result_errors = dict()
@@ -75,8 +79,8 @@ def main():
     result_scores = list()
 
     # Split dataset into train and test sets
-    train_dict = tuple_to_dict(TRAIN_FILE, max_frames=60)
-    probe_dict = tuple_to_dict(PROBE_FILE, max_frames=None)
+    train_dict = tuple_to_dict(TRAIN_FILE, max_frames=60, protocol=SCENARIO)
+    probe_dict = tuple_to_dict(PROBE_FILE, max_frames=None, protocol=SCENARIO)
 
     # Instantiate SpoofDet class
     spoofDet = FaceSpoofing()
