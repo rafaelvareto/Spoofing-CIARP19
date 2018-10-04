@@ -113,13 +113,12 @@ class FaceSpoofing:
             cv.waitKey(1)
         return sample_feature
 
-    def load_features(self, file_name='saves/train_feats.py', new_size=None):
-        if new_size is not None:
-            self._size = new_size
-        features, labels = np.load(file_name)
-        for (feat,lab) in zip(features, labels):
-            self._features.append(feat)
-            self._labels.append(lab)
+    def import_features(self, feature_dict):
+        for ((label, path), features) in feature_dict.items():
+            print('Imported Features: ', (label, path))
+            for feat in features:
+                self._features.append(feat)
+                self._labels.append(label)
 
     def load_model(self, file_name='saves/model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
@@ -161,6 +160,9 @@ class FaceSpoofing:
                 frame_counter += 1
             video_counter += 1
             np.save(file_name, [self._features, self._labels])
+
+    def predict_feature(self, probe_features):
+        pass
 
     def predict_image(self, probe_image):
         if self._type == 'PLS' or self._type == 'SVM':

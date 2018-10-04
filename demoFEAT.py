@@ -15,22 +15,6 @@ from video import Video
 
 HOME = os.path.expanduser("~")
 
-def tuple_to_dict(file_name, max_frames=None):
-    print('Loading ', file_name)
-    new_dict = dict()
-    feature_list, label_list, path_list = np.load(file_name)
-    print(feature_list.shape, label_list.shape, path_list.shape)
-    for triplet in zip(feature_list, label_list, path_list):
-        x_data, y_data, z_data = triplet[0], triplet[1], triplet[2]
-        if (z_data in new_dict) and (max_frames is None):
-            new_dict[z_data].append(x_data)
-        elif (z_data in new_dict) and (max_frames is not None):
-            if len(new_dict[z_data]) < max_frames:
-                new_dict[z_data].append(x_data)
-        else:
-            new_dict[z_data] = [x_data]
-    return new_dict
-
 def load_txt_file(file_name):
     this_file = open(file_name, 'r')
     this_list = list()
@@ -53,6 +37,22 @@ def split_train_test_sets(tuple_list, train_set_size=0.8):
         train_tuple.extend([(path, label) for path in train_set])
         test_tuple.extend([(path, label) for path in test_set])
     return train_tuple, test_tuple
+
+def tuple_to_dict(file_name, max_frames=None):
+    print('Loading ', file_name)
+    new_dict = dict()
+    feature_list, label_list, path_list = np.load(file_name)
+    assert(feature_list.shape == label_list.shape == path_list.shape)
+    for triplet in zip(feature_list, label_list, path_list):
+        x_data, y_data, z_data = triplet[0], triplet[1], triplet[2]
+        if ((y_data, z_data) in new_dict) and (max_frames is None):
+            new_dict[(y_data, z_data)].append(x_data)
+        elif ((y_data, z_data) in new_dict) and (max_frames is not None):
+            if len(new_dict[(y_data, z_data)]) < max_frames:
+                new_dict[(y_data, z_data)].append(x_data)
+        else:
+            new_dict[(y_data, z_data)] = [x_data]
+    return new_dict
 
 def main():
     # Handle arguments
@@ -80,11 +80,13 @@ def main():
 
     # Instantiate SpoofDet class
     spoofDet = FaceSpoofing()
-    spoofDet.load_features(file_name='saves/protocol_01_train.npy_new.npy', new_size=(400,300))
+    spoofDet.import_features(feature_dict=train_dict)
     spoofDet.trainPLS(components=10, iterations=1000) 
     # spoofDet.trainSVM(kernel_type='linear', verbose=False)
 
+
     # Check whether class is ready to continue
+    print('Classes: ', spoofDet.get_classes())
     assert('live' in spoofDet.get_classes())
 
 
