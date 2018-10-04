@@ -101,7 +101,6 @@ def main():
     # Predict samples
     video_counter = 0
     for (label, path) in probe_dict.keys():
-        print(video_counter + 1, '>> ', path, label)
         counter_dict[label] += 1
         scores = spoofDet.predict_feature(probe_dict[(label, path)])
         scores_dict = {label:value for (label,value) in scores}
@@ -113,7 +112,7 @@ def main():
             else:
                 result['labels'].append(-1)
                 result['scores'].append(scores_dict['live'])
-            print(scores_dict)
+            print(video_counter + 1, '>>', path, label, '>>', scores_dict)
         # Increment ERROR values
         if len(scores):
             pred_label, pred_score = scores[0]
