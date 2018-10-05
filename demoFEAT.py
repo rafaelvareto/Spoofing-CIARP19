@@ -4,6 +4,7 @@ import json
 import numpy as np
 import os
 import random
+import re
 
 import matplotlib
 matplotlib.use('Agg')
@@ -14,6 +15,23 @@ from myPlots import MyPlots
 from video import Video
 
 HOME = os.path.expanduser("~")
+
+
+def binarize_label(train_dict, probe_dict):
+    '''
+    Rename spoofing videos for binary classification
+    ''' 
+    new_probe_dict = dict()
+    new_train_dict = dict()
+    for ((y_data, z_data), x_data) in probe_dict.items():
+        if y_data != 'live':
+            y_data = 'spoof'
+        new_probe_dict[(y_data, z_data)] = x_data
+    for ((y_data, z_data), x_data) in train_dict.items():
+        if y_data != 'live':
+            y_data = 'spoof'
+        new_train_dict[(y_data, z_data)] = x_data
+    return new_train_dict, new_probe_dict
 
 def load_txt_file(file_name):
     this_file = open(file_name, 'r')
@@ -38,7 +56,13 @@ def split_train_test_sets(tuple_list, train_set_size=0.8):
         test_tuple.extend([(path, label) for path in test_set])
     return train_tuple, test_tuple
 
-def tuple_to_dict(file_name):
+def tokenize_path(path_name):
+    file_name = os.path.basename(path_name)
+    tokens = file_name.split('-') 
+    numbers = [re.sub('[^0-9]', '', token) for token in tokens]
+    return [int(number) for number in numbers]
+
+def tuple_to_dict(file_name, binarize=False):
     print('Loading ', file_name)
     new_dict = dict()
     feature_list, label_list, path_list = np.load(file_name)
@@ -52,27 +76,37 @@ def tuple_to_dict(file_name):
     return new_dict
 
 def siw_protocol_01(train_dict, probe_dict, max_frames=60):
-    new_probe_dict = dict()
-    new_train_dict = dict()
-    # Restrain number of samples per video for training
+    '''
+    Restrain number of samples per video for training
+    '''
     for ((y_data, z_data), x_data) in train_dict.items():
         new_x_data = [feat for feat in x_data[0:max_frames]]
         train_dict[(y_data, z_data)] = new_x_data
-    # Rename spoofing videos for binary classification
-    for ((y_data, z_data), x_data) in probe_dict.items():
-        if y_data != 'live':
-            y_data = 'spoof'
-        new_probe_dict[(y_data, z_data)] = x_data
-    for ((y_data, z_data), x_data) in train_dict.items():
-        if y_data != 'live':
-            y_data = 'spoof'
-        new_train_dict[(y_data, z_data)] = x_data
-    return new_train_dict, new_probe_dict
-
-def siw_protocol_02(train_dict, probe_dict):
     return train_dict, probe_dict
 
+def siw_protocol_02(train_dict, probe_dict, medium_out=1):
+    '''
+    Filter out media types that do not satisfy protocol two (replay attack) by keeping a single replay attack medium out at a time.
+    File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
+    '''
+    new_probe_dict = dict()
+    new_train_dict = dict()
+    print('probe')
+    for ((y_data, z_data), x_data) in probe_dict.items():
+        subject, sensor, category, medium, session = tokenize_path(z_data)
+        if (category != 2) and (medium == medium_out):
+            new_probe_dict[(y_data, z_data)] = x_data
+    print('train')
+    for ((y_data, z_data), x_data) in train_dict.items():
+        subject, sensor, category, medium, session = tokenize_path(z_data)
+        if (category != 2) and (medium != medium_out):
+            new_train_dict[(y_data, z_data)] = x_data
+    return new_train_dict, new_probe_dict
+
 def siw_protocol_03(train_dict, probe_dict):
+    new_probe_dict = dict()
+    new_train_dict = dict()
+    return train_dict, probe_dict
     return train_dict, probe_dict
 
 def main():
@@ -82,8 +116,8 @@ def main():
     parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='saves/error_rates', type=str)
     parser.add_argument('-r', '--repetitions', help='Number of executions [10..INF]', required=False, default=1, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default="one", type=str)
-    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe-new.npy"), type=str)
-    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train-new.npy"), type=str)
+    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe.npy"), type=str)
+    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train.npy"), type=str)
     
     # Storing in variables
     args = parser.parse_args()
@@ -105,7 +139,16 @@ def main():
 
     for index in range(REPETITIONS):
         print('> ITERATION ' + str(index + 1))
-        c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
+        if SCENARIO == 'one':
+            c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
+            c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
+        elif SCENARIO == 'two':
+            c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1)
+        elif SCENARIO == 'three':
+            c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, medium_out=index+1)
+            return
+        else:
+            exit
 
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
@@ -141,7 +184,7 @@ def main():
                 else:
                     result['labels'].append(-1)
                     result['scores'].append(scores_dict['live'])
-                print(video_counter + 1, '>>', path, label, '>>', scores_dict)
+                print(video_counter + 1, '>>', path, label, '>>', scores_dict, counter_dict)
             # Increment ERROR values
             if len(scores):
                 pred_label, pred_score = scores[0]
