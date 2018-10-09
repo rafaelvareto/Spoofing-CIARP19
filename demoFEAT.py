@@ -93,11 +93,15 @@ def siw_protocol_02(train_dict, probe_dict, medium_out=1):
     new_train_dict = dict()
     for ((y_data, z_data), x_data) in probe_dict.items():
         subject, sensor, category, medium, session = tokenize_path(z_data)
-        if (category != 2) and (medium == medium_out):
+        if (category == 1):
+            new_probe_dict[(y_data, z_data)] = x_data
+        elif (category == 3) and (medium == medium_out):
             new_probe_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in train_dict.items():
         subject, sensor, category, medium, session = tokenize_path(z_data)
-        if (category != 2) and (medium != medium_out):
+        if (category == 1):
+            new_train_dict[(y_data, z_data)] = x_data
+        elif (category == 3) and (medium != medium_out):
             new_train_dict[(y_data, z_data)] = x_data
     return new_train_dict, new_probe_dict
 
@@ -112,7 +116,6 @@ def main():
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
     parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='saves/error_rates', type=str)
-    parser.add_argument('-r', '--repetitions', help='Number of executions [10..INF]', required=False, default=1, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default="one", type=str)
     parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe.npy"), type=str)
     parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train.npy"), type=str)
@@ -122,9 +125,16 @@ def main():
     CHART_PATH = str(args.chart_path)
     ERROR_OUTCOME = str(args.error_outcome)
     PROBE_FILE = str(args.probe_file)
-    REPETITIONS = int(args.repetitions)
     SCENARIO = str(args.scenario)
     TRAIN_FILE = str(args.train_file)
+
+    # Determining number of iterations
+    if SCENARIO == 'one':
+        REPETITIONS = 1
+    elif SCENARIO == 'two':
+        REPETITIONS = 4
+    elif SCENARIO == 'three':
+        REPETITIONS = 2
 
     # Store all-interation results
     result_errors = dict()
@@ -213,6 +223,12 @@ def main():
         MyPlots.plt_roc_curves([roc_data,])
         plt.savefig(CHART_PATH)
         plt.close()
+
+    # Compute average APCER and BPCER
+    for label in result_errors.keys():
+        error_avg = np.mean(result_errors[label])
+        error_std = np.std(result_errors[label])
+        print("FINAL ERROR RESULT (label, avg, std):", label, error_avg, error_std)
 
 
 if __name__ == "__main__":
