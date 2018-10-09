@@ -91,12 +91,10 @@ def siw_protocol_02(train_dict, probe_dict, medium_out=1):
     '''
     new_probe_dict = dict()
     new_train_dict = dict()
-    print('probe')
     for ((y_data, z_data), x_data) in probe_dict.items():
         subject, sensor, category, medium, session = tokenize_path(z_data)
         if (category != 2) and (medium == medium_out):
             new_probe_dict[(y_data, z_data)] = x_data
-    print('train')
     for ((y_data, z_data), x_data) in train_dict.items():
         subject, sensor, category, medium, session = tokenize_path(z_data)
         if (category != 2) and (medium != medium_out):
