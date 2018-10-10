@@ -152,8 +152,8 @@ def main():
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/error_rates', type=str)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
-    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe-new.npy"), type=str)
-    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train-new.npy"), type=str)
+    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-prob.npy"), type=str)
+    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train.npy"), type=str)
     
     # Storing in variables
     args = parser.parse_args()
