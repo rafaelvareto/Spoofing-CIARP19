@@ -75,7 +75,17 @@ def tuple_to_dict(file_name, binarize=False):
             new_dict[(y_data, z_data)] = [x_data]
     return new_dict
 
-def set_max_frames(sample_dict, max_frames=60):
+def drop_frames(sample_dict, skip_frames=10):
+    '''
+    Skip some video frames in order to avoid overfitting 
+    '''
+    for ((y_data, z_data), x_data) in sample_dict.items():
+        new_x_data = [feat for (idx, feat) in enumerate(x_data) if idx % skip_frames == 0]
+        print('TAMS', len(x_data), len(new_x_data))
+        sample_dict[(y_data, z_data)] = new_x_data
+    return sample_dict
+
+def restrain_frames(sample_dict, max_frames=60):
     '''
     Restrain number of samples per video
     '''
@@ -93,7 +103,7 @@ def siw_protocol_01(train_dict, probe_dict, max_frames=60):
         train_dict[(y_data, z_data)] = new_x_data
     return train_dict, probe_dict
 
-def siw_protocol_02(train_dict, probe_dict, medium_out=1, max_frames=False):
+def siw_protocol_02(train_dict, probe_dict, medium_out=1, skip_frames=False):
     '''
     Filter out media types that do not satisfy protocol two (replay attack) by keeping a single replay attack medium out at a time.
     File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
@@ -112,11 +122,11 @@ def siw_protocol_02(train_dict, probe_dict, medium_out=1, max_frames=False):
             new_train_dict[(y_data, z_data)] = x_data
         elif (category == 3) and (medium != medium_out):
             new_train_dict[(y_data, z_data)] = x_data
-    if max_frames:
-        new_train_dict = set_max_frames(new_train_dict, max_frames=max_frames)
+    if skip_frames:
+        new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
     return new_train_dict, new_probe_dict
 
-def siw_protocol_03(train_dict, probe_dict, category_out=2, max_frames=False):
+def siw_protocol_03(train_dict, probe_dict, category_out=2, skip_frames=False):
     '''
     Filter out media types that do not satisfy protocol three by performing a person attack testing from print to replay attack and vice-versa.
     File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
@@ -131,25 +141,25 @@ def siw_protocol_03(train_dict, probe_dict, category_out=2, max_frames=False):
         subject, sensor, category, medium, session = tokenize_path(z_data)
         if (category == 1) or (category != category_out):
             new_train_dict[(y_data, z_data)] = x_data
-    if max_frames:
-        new_train_dict = set_max_frames(new_train_dict, max_frames=max_frames)
+    if skip_frames:
+        new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
     return new_train_dict, new_probe_dict
 
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
+    parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/error_rates', type=str)
-    parser.add_argument('-m', '--max_frames', help='Set maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
-    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe.npy"), type=str)
-    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train.npy"), type=str)
+    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe-new.npy"), type=str)
+    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train-new.npy"), type=str)
     
     # Storing in variables
     args = parser.parse_args()
     CHART_PATH = str(args.chart_path)
+    SKIP_FRAMES = int(args.drop_frames)
     ERROR_OUTCOME = str(args.error_outcome)
-    MAX_FRAMES = int(args.max_frames)
     PROBE_FILE = str(args.probe_file)
     SCENARIO = str(args.scenario)
     TRAIN_FILE = str(args.train_file)
@@ -177,9 +187,9 @@ def main():
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
             c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
         elif SCENARIO == 'two':
-            c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, max_frames=MAX_FRAMES)
+            c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, skip_frames=SKIP_FRAMES)
         elif SCENARIO == 'three':
-            c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, max_frames=MAX_FRAMES)
+            c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, skip_frames=SKIP_FRAMES)
             c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
         else:
             raise ValueError('ERROR: Scenarios range from one, two through three.')
