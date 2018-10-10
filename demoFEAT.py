@@ -105,11 +105,18 @@ def siw_protocol_02(train_dict, probe_dict, medium_out=1):
             new_train_dict[(y_data, z_data)] = x_data
     return new_train_dict, new_probe_dict
 
-def siw_protocol_03(train_dict, probe_dict):
+def siw_protocol_03(train_dict, probe_dict, category_out=2):
     new_probe_dict = dict()
     new_train_dict = dict()
-    return train_dict, probe_dict
-    return train_dict, probe_dict
+    for ((y_data, z_data), x_data) in probe_dict.items():
+        subject, sensor, category, medium, session = tokenize_path(z_data)
+        if (category == 1) or (category == category_out):
+            new_probe_dict[(y_data, z_data)] = x_data
+    for ((y_data, z_data), x_data) in train_dict.items():
+        subject, sensor, category, medium, session = tokenize_path(z_data)
+        if (category == 1) or (category != category_out):
+            new_train_dict[(y_data, z_data)] = x_data
+    return new_train_dict, new_probe_dict
 
 def main():
     # Handle arguments
@@ -153,9 +160,10 @@ def main():
         elif SCENARIO == 'two':
             c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1)
         elif SCENARIO == 'three':
-            c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, medium_out=index+1)
-            return
+            c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2)
+            c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
         else:
+            raise ValueError('ERROR: Scenarios range from one, two through three.')
             exit
 
         # Instantiate SpoofDet class
