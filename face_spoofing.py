@@ -244,13 +244,18 @@ class FaceSpoofing:
             self._models.append((model, label))
         self.save_model(file_name='saves/pls_model.npy') 
 
-    def trainSVM(self, kernel_type='rbf', verbose=False):
-        from sklearn.svm import SVR
+    def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
+        from sklearn.svm import LinearSVR, SVR, NuSVR
         self._type = 'SVM'
         self._models = list()
         print('Training SVM classifiers')
         for label in self.get_classes():
-            classifier = SVR(C=1.0, kernel=kernel_type, verbose=verbose)
+            if mode == 'libsvm':
+                classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
+            elif mode == 'liblinear':
+                classifier = LinearSVR(C=cpar, max_iter=iterations, verbose=verbose)
+            elif mode =='libsvm-nu':
+                classifier = NuSVR(nu=0.5, C=cpar, kernel=kernel_type, verbose=verbose)            
             boolean_label = [label == lab for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
