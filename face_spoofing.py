@@ -113,13 +113,12 @@ class FaceSpoofing:
             cv.waitKey(1)
         return sample_feature
 
-    def load_features(self, file_name='saves/train_feats.py', new_size=None):
-        if new_size is not None:
-            self._size = new_size
-        features, labels = np.load(file_name)
-        for (feat,lab) in zip(features, labels):
-            self._features.append(feat)
-            self._labels.append(lab)
+    def import_features(self, feature_dict):
+        for ((label, path), features) in feature_dict.items():
+            print('Imported Features: ', (label, path), len(features))
+            for feat in features:
+                self._features.append(feat)
+                self._labels.append(label)
 
     def load_model(self, file_name='saves/model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
@@ -161,6 +160,22 @@ class FaceSpoofing:
                 frame_counter += 1
             video_counter += 1
             np.save(file_name, [self._features, self._labels])
+
+    def predict_feature(self, probe_features):
+        class_dict = dict()
+        if self._type == 'PLS' or self._type == 'SVM':
+            for feature in probe_features:
+                results = [float(model[0].predict(np.array([feature]))) for model in self._models]
+                labels = [model[1] for model in self._models]
+                scores = list(map(lambda left,right:(left,right), labels, results))
+                class_dict = self.__manage_results(class_dict, scores)
+        elif self._type == 'CNN':
+            for feature in probe_features:
+                results = self._models.predict(array_image).ravel()
+                labels = [self._dictionary[index] for index in range(len(results))]
+                scores = list(map(lambda left,right:(left,right), labels, results))
+                class_dict = self.__manage_results(class_dict, scores)
+        return self.__mean_and_sort(class_dict)
 
     def predict_image(self, probe_image):
         if self._type == 'PLS' or self._type == 'SVM':
@@ -229,13 +244,18 @@ class FaceSpoofing:
             self._models.append((model, label))
         self.save_model(file_name='saves/pls_model.npy') 
 
-    def trainSVM(self, kernel_type='rbf', verbose=False):
-        from sklearn.svm import SVR
+    def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
+        from sklearn.svm import LinearSVR, SVR, NuSVR
         self._type = 'SVM'
         self._models = list()
         print('Training SVM classifiers')
         for label in self.get_classes():
-            classifier = SVR(C=1.0, kernel=kernel_type, verbose=verbose)
+            if mode == 'libsvm':
+                classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
+            elif mode == 'liblinear':
+                classifier = LinearSVR(C=cpar, max_iter=iterations, verbose=verbose)
+            elif mode =='libsvm-nu':
+                classifier = NuSVR(nu=0.5, C=cpar, kernel=kernel_type, verbose=verbose)            
             boolean_label = [label == lab for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
