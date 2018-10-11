@@ -33,6 +33,24 @@ def binarize_label(train_dict, probe_dict):
         new_train_dict[(y_data, z_data)] = x_data
     return new_train_dict, new_probe_dict
 
+def drop_frames(sample_dict, skip_frames=10):
+    '''
+    Skip some video frames in order to avoid overfitting 
+    '''
+    for ((y_data, z_data), x_data) in sample_dict.items():
+        new_x_data = [feat for (idx, feat) in enumerate(x_data) if idx % skip_frames == 0]
+        sample_dict[(y_data, z_data)] = new_x_data
+    return sample_dict
+
+def limit_frames(sample_dict, max_frames=60):
+    '''
+    Restrain number of samples per video
+    '''
+    for ((y_data, z_data), x_data) in sample_dict.items():
+        new_x_data = [feat for feat in x_data[0:max_frames]]
+        sample_dict[(y_data, z_data)] = new_x_data
+    return sample_dict
+
 def load_txt_file(file_name):
     this_file = open(file_name, 'r')
     this_list = list()
@@ -75,25 +93,6 @@ def tuple_to_dict(file_name, binarize=False):
             new_dict[(y_data, z_data)] = [x_data]
     return new_dict
 
-def drop_frames(sample_dict, skip_frames=10):
-    '''
-    Skip some video frames in order to avoid overfitting 
-    '''
-    for ((y_data, z_data), x_data) in sample_dict.items():
-        new_x_data = [feat for (idx, feat) in enumerate(x_data) if idx % skip_frames == 0]
-        print('TAMS', len(x_data), len(new_x_data))
-        sample_dict[(y_data, z_data)] = new_x_data
-    return sample_dict
-
-def restrain_frames(sample_dict, max_frames=60):
-    '''
-    Restrain number of samples per video
-    '''
-    for ((y_data, z_data), x_data) in sample_dict.items():
-        new_x_data = [feat for feat in x_data[0:max_frames]]
-        sample_dict[(y_data, z_data)] = new_x_data
-    return sample_dict
-
 def siw_protocol_01(train_dict, probe_dict, max_frames=60):
     '''
     Set maximum number of frames per video for training samples
@@ -103,7 +102,7 @@ def siw_protocol_01(train_dict, probe_dict, max_frames=60):
         train_dict[(y_data, z_data)] = new_x_data
     return train_dict, probe_dict
 
-def siw_protocol_02(train_dict, probe_dict, medium_out=1, skip_frames=False):
+def siw_protocol_02(train_dict, probe_dict, medium_out=1, max_frames=False, skip_frames=False):
     '''
     Filter out media types that do not satisfy protocol two (replay attack) by keeping a single replay attack medium out at a time.
     File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
@@ -124,9 +123,11 @@ def siw_protocol_02(train_dict, probe_dict, medium_out=1, skip_frames=False):
             new_train_dict[(y_data, z_data)] = x_data
     if skip_frames:
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
+    if max_frames:
+        new_train_dict = limit_frames(new_train_dict, max_frames=max_frames)
     return new_train_dict, new_probe_dict
 
-def siw_protocol_03(train_dict, probe_dict, category_out=2, skip_frames=False):
+def siw_protocol_03(train_dict, probe_dict, category_out=2, max_frames=False, skip_frames=False):
     '''
     Filter out media types that do not satisfy protocol three by performing a person attack testing from print to replay attack and vice-versa.
     File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
@@ -143,6 +144,8 @@ def siw_protocol_03(train_dict, probe_dict, category_out=2, skip_frames=False):
             new_train_dict[(y_data, z_data)] = x_data
     if skip_frames:
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
+    if max_frames:
+        new_train_dict = limit_frames(new_train_dict, max_frames=max_frames)
     return new_train_dict, new_probe_dict
 
 def main():
@@ -151,6 +154,7 @@ def main():
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/error_rates', type=str)
+    parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
     parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-prob.npy"), type=str)
     parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train.npy"), type=str)
@@ -158,10 +162,11 @@ def main():
     # Storing in variables
     args = parser.parse_args()
     CHART_PATH = str(args.chart_path)
-    SKIP_FRAMES = int(args.drop_frames)
+    DROP_FRAMES = int(args.drop_frames)
     ERROR_OUTCOME = str(args.error_outcome)
-    PROBE_FILE = str(args.probe_file)
+    MAX_FRAMES = int(args.max_frames)
     SCENARIO = str(args.scenario)
+    PROBE_FILE = str(args.probe_file)
     TRAIN_FILE = str(args.train_file)
 
     # Determining number of iterations
@@ -187,9 +192,9 @@ def main():
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
             c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
         elif SCENARIO == 'two':
-            c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, skip_frames=SKIP_FRAMES)
+            c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
         elif SCENARIO == 'three':
-            c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, skip_frames=SKIP_FRAMES)
+            c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
             c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
         else:
             raise ValueError('ERROR: Scenarios range from one, two through three.')
