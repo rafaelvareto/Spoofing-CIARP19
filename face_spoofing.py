@@ -30,6 +30,7 @@ class FaceSpoofing:
         self._labels = list()
         self._models = None
         self._paths = list()
+        self._pos_label = 'None'
         self._size = (640, 360)
         self._type = 'None'
         self._vr_height = 1
@@ -183,6 +184,14 @@ class FaceSpoofing:
                 labels = [model[1] for model in self._models]
                 scores = list(map(lambda left,right:(left,right), labels, results))
                 class_dict = self.__manage_results(class_dict, scores)
+        elif self._type == 'EPLS' or self._type == 'ESVM':
+            for feature in probe_features:
+                results = [float(model.predict(np.array([feature]))) for model in self._models]
+                # CONINUAR AQUI
+                scores = {}
+                scores = list(map(lambda left,right:(left,right), labels, results))
+                print(scores)
+                class_dict = self.__manage_results(class_dict, scores)
         elif self._type == 'CNN':
             for feature in probe_features:
                 results = self._models.predict(array_image).ravel()
@@ -221,6 +230,9 @@ class FaceSpoofing:
                             labels = [model[1] for model in self._models]
                             scores = list(map(lambda left,right:(left,right), labels, results))
                             class_dict = self.__manage_results(class_dict, scores)
+                    elif self._type == 'EPLS' or self._type == 'ESVM':
+                        scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
+                        feature = self.gray2feat_pipeline(scaled_frame)
                     elif self._type == 'CNN': 
                         scaled_image = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         gray_image = self.get_gray_image(scaled_image) 
@@ -262,11 +274,12 @@ class FaceSpoofing:
         from sklearn.cross_decomposition import PLSRegression
         self._type = 'EPLS'
         self._models = list()
+        self._pos_label = pos_label
         print('Training an Embedding of PLS classifiers')
         for index in range(models):
             rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
             classifier = PLSRegression(n_components=components, max_iter=iterations)
-            boolean_label = [pos_label == lab for lab in rand_labels]
+            boolean_label = [+1.0 if pos_label == lab else -1.0 for lab in rand_labels]
             model = classifier.fit(np.array(rand_features), np.array(boolean_label))
             self._models.append(model)
         self.save_model(file_name='saves/epls_model.npy')

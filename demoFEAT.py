@@ -203,7 +203,7 @@ def main():
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
-        spoofDet.trainEPLS(components=10, iterations=1000) 
+        spoofDet.trainEPLS(models=10, samples4model=10, components=10, iterations=1000) 
         # spoofDet.trainSVM(kernel_type='linear', verbose=False)
 
         # Check whether class is ready to continue
