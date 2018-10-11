@@ -29,6 +29,7 @@ class FaceSpoofing:
         self._kernel_size = 7
         self._labels = list()
         self._models = None
+        self._paths = list()
         self._size = (640, 360)
         self._type = 'None'
         self._vr_height = 1
@@ -119,6 +120,7 @@ class FaceSpoofing:
             for feat in features:
                 self._features.append(feat)
                 self._labels.append(label)
+                self._paths.append(path)
 
     def load_model(self, file_name='saves/model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
@@ -163,7 +165,7 @@ class FaceSpoofing:
 
     def predict_feature(self, probe_features):
         class_dict = dict()
-        if self._type == 'PLS' or self._type == 'SVM':
+        if self._type == 'OAAPLS' or self._type == 'OAASVM':
             for feature in probe_features:
                 results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                 labels = [model[1] for model in self._models]
@@ -178,7 +180,7 @@ class FaceSpoofing:
         return self.__mean_and_sort(class_dict)
 
     def predict_image(self, probe_image):
-        if self._type == 'PLS' or self._type == 'SVM':
+        if self._type == 'OAAPLS' or self._type == 'OAASVM':
             class_dict = dict()
             scaled_image = cv.resize(probe_image, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
             feature = self.gray2feat_pipeline(scaled_image)
@@ -199,7 +201,7 @@ class FaceSpoofing:
             ret, probe_frame = probe_video.read()
             if ret:
                 if frame_counter % frame_drop == 0:
-                    if self._type == 'PLS' or self._type == 'SVM':
+                    if self._type == 'OAAPLS' or self._type == 'OAASVM':
                         scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         feature = self.gray2feat_pipeline(scaled_frame)
                         if not np.any(np.isnan(feature)): 
@@ -234,21 +236,40 @@ class FaceSpoofing:
 
     def trainPLS(self, components=10, iterations=500):
         from sklearn.cross_decomposition import PLSRegression
-        self._type = 'PLS'
+        self._type = 'OAAPLS'
         self._models = list()
-        print('Training PLS classifiers')
+        print('Training One-Against-All PLS classifiers')
         for label in self.get_classes():
             classifier = PLSRegression(n_components=components, max_iter=iterations)
             boolean_label = [label == lab for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
-        self.save_model(file_name='saves/pls_model.npy') 
+        self.save_model(file_name='saves/pls_model.npy')
+
+
+    def __feature_sampling(self, samples=100):
+        rand_features = list()
+        rand_labels = list()
+        pass
+
+    def trainEPLS(self, models=100, samples4model=100, pos_label='live', components=10, iterations=500):
+        from sklearn.cross_decomposition import PLSRegression
+        self._type = 'EPLS'
+        self._models = list()
+        print('Training an Embedding of PLS classifiers')
+        for index in range(models):
+            rand_features, rand_labels = self.__feature_sampling(samples=samples4model)
+            classifier = PLSRegression(n_components=components, max_iter=iterations)
+            boolean_label = [pos_label == lab for lab in rand_labels]
+            model = classifier.fit(np.array(self._features), np.array(boolean_label))
+            self._models.append((model, label))
+        self.save_model(file_name='saves/epls_model.npy')
 
     def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
         from sklearn.svm import LinearSVR, SVR, NuSVR
-        self._type = 'SVM'
+        self._type = 'OAASVM'
         self._models = list()
-        print('Training SVM classifiers')
+        print('Training One-Against-All SVM classifiers')
         for label in self.get_classes():
             if mode == 'libsvm':
                 classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
