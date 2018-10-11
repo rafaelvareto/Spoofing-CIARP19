@@ -41,6 +41,24 @@ class FaceSpoofing:
         self._dictionary = dict( list(lab_dict.items()) + list(num_dict.items()) )
         print(self._dictionary)
 
+    def __channel_swap(self, image): 
+        spare = copy.copy(image)
+        image[:, :, 0] = spare[:, :, 2]
+        image[:, :, 2] = spare[:, :, 0]
+        return image
+
+    def __feature_sampling(self, num_samples=100):
+        rand_features = list()
+        rand_labels = list()
+        for cat in self.get_classes():
+            cat_indices = [index for (index,value) in enumerate(self._labels) if value == cat]
+            cat_sampled = random.sample(cat_indices, num_samples)
+            cat_features = [self._features[index] for index in cat_sampled]
+            cat_labels = [self._labels[index] for index in cat_sampled]
+            rand_features.extend(cat_features)
+            rand_labels.extend(cat_labels)
+        return rand_features, rand_labels
+
     def __manage_results(self, dictionary, score_list):
         for (label, result) in score_list:
             if label in dictionary:
@@ -57,12 +75,6 @@ class FaceSpoofing:
         new_list = [(key,float(np.mean(value))) for (key, value) in dictionary.items()]
         new_list.sort(key=lambda tup:tup[1], reverse=True)
         return new_list
-
-    def __channel_swap(self, image): 
-        spare = copy.copy(image)
-        image[:, :, 0] = spare[:, :, 2]
-        image[:, :, 2] = spare[:, :, 0]
-        return image
 
     def get_gray_image(self, color_img):
         return cv.cvtColor(color_img, cv.COLOR_BGR2GRAY)
@@ -246,23 +258,17 @@ class FaceSpoofing:
             self._models.append((model, label))
         self.save_model(file_name='saves/pls_model.npy')
 
-
-    def __feature_sampling(self, samples=100):
-        rand_features = list()
-        rand_labels = list()
-        pass
-
     def trainEPLS(self, models=100, samples4model=100, pos_label='live', components=10, iterations=500):
         from sklearn.cross_decomposition import PLSRegression
         self._type = 'EPLS'
         self._models = list()
         print('Training an Embedding of PLS classifiers')
         for index in range(models):
-            rand_features, rand_labels = self.__feature_sampling(samples=samples4model)
+            rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
             classifier = PLSRegression(n_components=components, max_iter=iterations)
             boolean_label = [pos_label == lab for lab in rand_labels]
-            model = classifier.fit(np.array(self._features), np.array(boolean_label))
-            self._models.append((model, label))
+            model = classifier.fit(np.array(rand_features), np.array(boolean_label))
+            self._models.append(model)
         self.save_model(file_name='saves/epls_model.npy')
 
     def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
