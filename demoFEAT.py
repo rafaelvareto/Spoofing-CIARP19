@@ -17,19 +17,23 @@ from video import Video
 HOME = os.path.expanduser("~")
 
 
-def binarize_label(train_dict, probe_dict):
+def binarize_label(train_dict, probe_dict, input_label='live', pos_label='live', neg_label='spoof'):
     '''
     Rename spoofing videos for binary classification
     ''' 
     new_probe_dict = dict()
     new_train_dict = dict()
     for ((y_data, z_data), x_data) in probe_dict.items():
-        if y_data != 'live':
-            y_data = 'spoof'
+        if y_data != input_label:
+            y_data = neg_label
+        else:
+            y_data = pos_label
         new_probe_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in train_dict.items():
-        if y_data != 'live':
-            y_data = 'spoof'
+        if y_data != input_label:
+            y_data = neg_label
+        else:
+            y_data = pos_label
         new_train_dict[(y_data, z_data)] = x_data
     return new_train_dict, new_probe_dict
 
@@ -151,6 +155,7 @@ def siw_protocol_03(train_dict, probe_dict, category_out=2, max_frames=False, sk
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
+    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=bool)
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/error_rates', type=str)
@@ -161,6 +166,7 @@ def main():
     
     # Storing in variables
     args = parser.parse_args()
+    BAGGING = int(args.bagging)
     CHART_PATH = str(args.chart_path)
     DROP_FRAMES = int(args.drop_frames)
     ERROR_OUTCOME = str(args.error_outcome)
@@ -176,6 +182,9 @@ def main():
         REPETITIONS = 4
     elif SCENARIO == 'three':
         REPETITIONS = 2
+    else:
+        raise ValueError('ERROR: Scenarios range from one through three.')
+        exit
 
     # Store all-interation results
     result_errors = dict()
@@ -190,20 +199,21 @@ def main():
         print('> ITERATION ' + str(index + 1))
         if SCENARIO == 'one':
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
-            c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
         elif SCENARIO == 'two':
             c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
         elif SCENARIO == 'three':
             c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
-            c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
-        else:
-            raise ValueError('ERROR: Scenarios range from one, two through three.')
-            exit
+
+        # Change into a binary problem
+        c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict, input_label='live', pos_label='live', neg_label='spoof')
 
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
-        spoofDet.trainEPLS(models=10, samples4model=10, components=10, iterations=1000) 
+        if BAGGING:
+            spoofDet.trainEPLS(models=100, samples4model=50, components=10, iterations=1000) 
+        else:
+            spoofDet.trainPLS(components=10, iterations=1000)
         # spoofDet.trainSVM(kernel_type='linear', verbose=False)
 
         # Check whether class is ready to continue

@@ -28,6 +28,7 @@ class FaceSpoofing:
         self._images = list()
         self._kernel_size = 7
         self._labels = list()
+        self._neg_label = 'None'
         self._models = None
         self._paths = list()
         self._pos_label = 'None'
@@ -187,10 +188,8 @@ class FaceSpoofing:
         elif self._type == 'EPLS' or self._type == 'ESVM':
             for feature in probe_features:
                 results = [float(model.predict(np.array([feature]))) for model in self._models]
-                # CONINUAR AQUI
-                scores = {}
-                scores = list(map(lambda left,right:(left,right), labels, results))
-                print(scores)
+                labels = [self._pos_label if result > 0 else self._neg_label for result in results]
+                scores = list(map(lambda lab,res:(lab, np.abs(res)), labels, results))
                 class_dict = self.__manage_results(class_dict, scores)
         elif self._type == 'CNN':
             for feature in probe_features:
@@ -260,28 +259,30 @@ class FaceSpoofing:
 
     def trainPLS(self, components=10, iterations=500):
         from sklearn.cross_decomposition import PLSRegression
-        self._type = 'OAAPLS'
         self._models = list()
+        self._type = 'OAAPLS'
         print('Training One-Against-All PLS classifiers')
         for label in self.get_classes():
             classifier = PLSRegression(n_components=components, max_iter=iterations)
-            boolean_label = [label == lab for lab in self._labels]
+            boolean_label = [+1.0 if label == lab else -1.0 for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
         self.save_model(file_name='saves/pls_model.npy')
 
-    def trainEPLS(self, models=100, samples4model=100, pos_label='live', components=10, iterations=500):
+    def trainEPLS(self, models=50, samples4model=50, pos_label='live', neg_label='spoof', components=10, iterations=500):
         from sklearn.cross_decomposition import PLSRegression
-        self._type = 'EPLS'
         self._models = list()
+        self._neg_label = neg_label
         self._pos_label = pos_label
+        self._type = 'EPLS'
         print('Training an Embedding of PLS classifiers')
         for index in range(models):
             rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
             classifier = PLSRegression(n_components=components, max_iter=iterations)
-            boolean_label = [+1.0 if pos_label == lab else -1.0 for lab in rand_labels]
+            boolean_label = [+1.0 if self._pos_label == lab else -1.0 for lab in rand_labels]
             model = classifier.fit(np.array(rand_features), np.array(boolean_label))
             self._models.append(model)
+            print(' -> Training model %3d' % (index + 1))
         self.save_model(file_name='saves/epls_model.npy')
 
     def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
