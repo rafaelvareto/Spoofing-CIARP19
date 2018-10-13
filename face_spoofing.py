@@ -282,7 +282,7 @@ class FaceSpoofing:
             boolean_label = [+1.0 if self._pos_label == lab else -1.0 for lab in rand_labels]
             model = classifier.fit(np.array(rand_features), np.array(boolean_label))
             self._models.append(model)
-            print(' -> Training model %3d' % (index + 1))
+            print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
         self.save_model(file_name='saves/epls_model.npy')
 
     def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):

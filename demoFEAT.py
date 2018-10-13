@@ -155,10 +155,11 @@ def siw_protocol_03(train_dict, probe_dict, category_out=2, max_frames=False, sk
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
-    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=bool)
+    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=int)
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/error_rates', type=str)
+    parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
     parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe.npy"), type=str)
@@ -170,6 +171,7 @@ def main():
     CHART_PATH = str(args.chart_path)
     DROP_FRAMES = int(args.drop_frames)
     ERROR_OUTCOME = str(args.error_outcome)
+    INSTANCES = int(args.instances)
     MAX_FRAMES = int(args.max_frames)
     SCENARIO = str(args.scenario)
     PROBE_FILE = str(args.probe_file)
@@ -211,10 +213,10 @@ def main():
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
         if BAGGING:
-            spoofDet.trainEPLS(models=100, samples4model=50, components=10, iterations=1000) 
+            spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES, components=10, iterations=1000) 
         else:
             spoofDet.trainPLS(components=10, iterations=1000)
-        # spoofDet.trainSVM(kernel_type='linear', verbose=False)
+            # spoofDet.trainSVM(kernel_type='linear', verbose=False)
 
         # Check whether class is ready to continue
         print('Classes: ', spoofDet.get_classes())
