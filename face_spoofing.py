@@ -67,6 +67,9 @@ class FaceSpoofing:
                 dictionary[label].append(result)
             else:
                 dictionary[label] = [result, ]
+        for label in self.get_classes():
+            if label not in dictionary:
+                dictionary[label] = [0.0]
         return dictionary
 
     def __mean_and_return(self, dictionary):
@@ -177,7 +180,7 @@ class FaceSpoofing:
             video_counter += 1
             np.save(file_name, [self._features, self._labels])
 
-    def predict_feature(self, probe_features):
+    def predict_feature(self, probe_features, threshold=0.0):
         class_dict = dict()
         if self._type == 'OAAPLS' or self._type == 'OAASVM':
             for feature in probe_features:

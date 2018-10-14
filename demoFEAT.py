@@ -242,10 +242,9 @@ def main():
             if len(scores_dict):
                 if label == 'live':
                     result['labels'].append(+1)
-                    result['scores'].append(scores_dict['live'])
                 else:
                     result['labels'].append(-1)
-                    result['scores'].append(scores_dict['live'])
+                result['scores'].append(scores_dict['live'])
                 print(video_counter + 1, '>>', path, label, '>>', scores_dict, counter_dict)
             # Increment ERROR values
             if len(scores):
