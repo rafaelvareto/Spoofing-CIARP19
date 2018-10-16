@@ -191,7 +191,7 @@ class FaceSpoofing:
         elif self._type == 'EPLS' or self._type == 'ESVM':
             for feature in probe_features:
                 results = [float(model.predict(np.array([feature]))) for model in self._models]
-                labels = [self._pos_label if result > 0 else self._neg_label for result in results]
+                labels = [self._pos_label if result > threshold else self._neg_label for result in results]
                 scores = list(map(lambda lab,res:(lab, np.abs(res)), labels, results))
                 class_dict = self.__manage_results(class_dict, scores)
         elif self._type == 'CNN':

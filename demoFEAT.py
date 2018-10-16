@@ -10,6 +10,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from sklearn.metrics import precision_recall_curve, auc
+
 from face_spoofing import FaceSpoofing
 from myPlots import MyPlots
 from video import Video
@@ -209,6 +211,10 @@ def main():
         # Change into a binary problem
         c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict, input_label='live', pos_label='live', neg_label='spoof')
 
+        # Print data size
+        print('Train size:', len(c_train_dict), sum([1 for (y_data, z_data) in c_train_dict.keys() if y_data == 'live']), sum([1 for (y_data, z_data) in c_train_dict.keys() if y_data != 'live']))
+        print('Probe size:', len(c_probe_dict), sum([1 for (y_data, z_data) in c_probe_dict.keys() if y_data == 'live']), sum([1 for (y_data, z_data) in c_probe_dict.keys() if y_data != 'live']))
+
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
@@ -216,7 +222,6 @@ def main():
             spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES, components=10, iterations=1000) 
         else:
             spoofDet.trainPLS(components=10, iterations=1000)
-            # spoofDet.trainSVM(kernel_type='linear', verbose=False)
 
         # Check whether class is ready to continue
         print('Classes: ', spoofDet.get_classes())
@@ -262,6 +267,13 @@ def main():
             else:
                 result_errors[label] = [error_dict[label]]
         print("ERROR RESULT", error_dict)
+
+        # Generate F-Measure and find best threshold
+        precision, recall, threshold = precision_recall_curve(result['labels'], result['scores'])
+        threshold = threshold.tolist()
+        threshold.append(threshold[-1])
+        fscores = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision, recall, threshold)]
+        print(fscores[0:3])
 
         # Save data to files
         result_labels.append(result['labels'])
