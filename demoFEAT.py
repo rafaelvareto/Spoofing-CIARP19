@@ -119,7 +119,7 @@ def siw_protocol_02(train_dict, probe_dict, medium_out=1, max_frames=False, skip
         subject, sensor, category, medium, session = tokenize_path(z_data)
         if (category == 1):
             new_train_dict[(y_data, z_data)] = x_data
-        elif (category == 3) and (medium != medium_out):
+        elif ((category == 2) or (category == 3)) and (medium != medium_out):
             new_train_dict[(y_data, z_data)] = x_data
     if skip_frames:
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
