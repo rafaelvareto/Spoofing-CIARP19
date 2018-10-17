@@ -271,6 +271,7 @@ def main():
     for label in result_errors.keys():
         error_avg = np.mean(result_errors[label])
         error_std = np.std(result_errors[label])
+        print("RESULTS per ITERATION:", label, result_errors[label])
         print("FINAL ERROR RESULT (label, avg, std):", label, error_avg, error_std)
 
 
