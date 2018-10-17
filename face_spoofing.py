@@ -28,7 +28,10 @@ class FaceSpoofing:
         self._images = list()
         self._kernel_size = 7
         self._labels = list()
+        self._neg_label = 'None'
         self._models = None
+        self._paths = list()
+        self._pos_label = 'None'
         self._size = (640, 360)
         self._type = 'None'
         self._vr_height = 1
@@ -40,12 +43,33 @@ class FaceSpoofing:
         self._dictionary = dict( list(lab_dict.items()) + list(num_dict.items()) )
         print(self._dictionary)
 
+    def __channel_swap(self, image): 
+        spare = copy.copy(image)
+        image[:, :, 0] = spare[:, :, 2]
+        image[:, :, 2] = spare[:, :, 0]
+        return image
+
+    def __feature_sampling(self, num_samples=100):
+        rand_features = list()
+        rand_labels = list()
+        for cat in self.get_classes():
+            cat_indices = [index for (index,value) in enumerate(self._labels) if value == cat]
+            cat_sampled = random.sample(cat_indices, num_samples)
+            cat_features = [self._features[index] for index in cat_sampled]
+            cat_labels = [self._labels[index] for index in cat_sampled]
+            rand_features.extend(cat_features)
+            rand_labels.extend(cat_labels)
+        return rand_features, rand_labels
+
     def __manage_results(self, dictionary, score_list):
         for (label, result) in score_list:
             if label in dictionary:
                 dictionary[label].append(result)
             else:
                 dictionary[label] = [result, ]
+        for label in self.get_classes():
+            if label not in dictionary:
+                dictionary[label] = [0.0]
         return dictionary
 
     def __mean_and_return(self, dictionary):
@@ -56,12 +80,6 @@ class FaceSpoofing:
         new_list = [(key,float(np.mean(value))) for (key, value) in dictionary.items()]
         new_list.sort(key=lambda tup:tup[1], reverse=True)
         return new_list
-
-    def __channel_swap(self, image): 
-        spare = copy.copy(image)
-        image[:, :, 0] = spare[:, :, 2]
-        image[:, :, 2] = spare[:, :, 0]
-        return image
 
     def get_gray_image(self, color_img):
         return cv.cvtColor(color_img, cv.COLOR_BGR2GRAY)
@@ -119,6 +137,7 @@ class FaceSpoofing:
             for feat in features:
                 self._features.append(feat)
                 self._labels.append(label)
+                self._paths.append(path)
 
     def load_model(self, file_name='saves/model.npy'):
         self._labels, self._models, self._type = np.load(file_name)
@@ -161,13 +180,19 @@ class FaceSpoofing:
             video_counter += 1
             np.save(file_name, [self._features, self._labels])
 
-    def predict_feature(self, probe_features):
+    def predict_feature(self, probe_features, threshold=0.0):
         class_dict = dict()
-        if self._type == 'PLS' or self._type == 'SVM':
+        if self._type == 'OAAPLS' or self._type == 'OAASVM':
             for feature in probe_features:
                 results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                 labels = [model[1] for model in self._models]
                 scores = list(map(lambda left,right:(left,right), labels, results))
+                class_dict = self.__manage_results(class_dict, scores)
+        elif self._type == 'EPLS' or self._type == 'ESVM':
+            for feature in probe_features:
+                results = [float(model.predict(np.array([feature]))) for model in self._models]
+                labels = [self._pos_label if result > threshold else self._neg_label for result in results]
+                scores = list(map(lambda lab,res:(lab, np.abs(res)), labels, results))
                 class_dict = self.__manage_results(class_dict, scores)
         elif self._type == 'CNN':
             for feature in probe_features:
@@ -178,7 +203,7 @@ class FaceSpoofing:
         return self.__mean_and_sort(class_dict)
 
     def predict_image(self, probe_image):
-        if self._type == 'PLS' or self._type == 'SVM':
+        if self._type == 'OAAPLS' or self._type == 'OAASVM':
             class_dict = dict()
             scaled_image = cv.resize(probe_image, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
             feature = self.gray2feat_pipeline(scaled_image)
@@ -199,7 +224,7 @@ class FaceSpoofing:
             ret, probe_frame = probe_video.read()
             if ret:
                 if frame_counter % frame_drop == 0:
-                    if self._type == 'PLS' or self._type == 'SVM':
+                    if self._type == 'OAAPLS' or self._type == 'OAASVM':
                         scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         feature = self.gray2feat_pipeline(scaled_frame)
                         if not np.any(np.isnan(feature)): 
@@ -207,6 +232,9 @@ class FaceSpoofing:
                             labels = [model[1] for model in self._models]
                             scores = list(map(lambda left,right:(left,right), labels, results))
                             class_dict = self.__manage_results(class_dict, scores)
+                    elif self._type == 'EPLS' or self._type == 'ESVM':
+                        scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
+                        feature = self.gray2feat_pipeline(scaled_frame)
                     elif self._type == 'CNN': 
                         scaled_image = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
                         gray_image = self.get_gray_image(scaled_image) 
@@ -234,21 +262,37 @@ class FaceSpoofing:
 
     def trainPLS(self, components=10, iterations=500):
         from sklearn.cross_decomposition import PLSRegression
-        self._type = 'PLS'
         self._models = list()
-        print('Training PLS classifiers')
+        self._type = 'OAAPLS'
+        print('Training One-Against-All PLS classifiers')
         for label in self.get_classes():
             classifier = PLSRegression(n_components=components, max_iter=iterations)
-            boolean_label = [label == lab for lab in self._labels]
+            boolean_label = [+1.0 if label == lab else -1.0 for lab in self._labels]
             model = classifier.fit(np.array(self._features), np.array(boolean_label))
             self._models.append((model, label))
-        self.save_model(file_name='saves/pls_model.npy') 
+        self.save_model(file_name='saves/pls_model.npy')
+
+    def trainEPLS(self, models=50, samples4model=50, pos_label='live', neg_label='spoof', components=10, iterations=500):
+        from sklearn.cross_decomposition import PLSRegression
+        self._models = list()
+        self._neg_label = neg_label
+        self._pos_label = pos_label
+        self._type = 'EPLS'
+        print('Training an Embedding of PLS classifiers')
+        for index in range(models):
+            rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
+            classifier = PLSRegression(n_components=components, max_iter=iterations)
+            boolean_label = [+1.0 if self._pos_label == lab else -1.0 for lab in rand_labels]
+            model = classifier.fit(np.array(rand_features), np.array(boolean_label))
+            self._models.append(model)
+            print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
+        self.save_model(file_name='saves/epls_model.npy')
 
     def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
         from sklearn.svm import LinearSVR, SVR, NuSVR
-        self._type = 'SVM'
+        self._type = 'OAASVM'
         self._models = list()
-        print('Training SVM classifiers')
+        print('Training One-Against-All SVM classifiers')
         for label in self.get_classes():
             if mode == 'libsvm':
                 classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)

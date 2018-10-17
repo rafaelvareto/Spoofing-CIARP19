@@ -10,6 +10,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from sklearn.metrics import precision_recall_curve, auc
+
 from face_spoofing import FaceSpoofing
 from myPlots import MyPlots
 from video import Video
@@ -17,19 +19,23 @@ from video import Video
 HOME = os.path.expanduser("~")
 
 
-def binarize_label(train_dict, probe_dict):
+def binarize_label(train_dict, probe_dict, input_label='live', pos_label='live', neg_label='spoof'):
     '''
     Rename spoofing videos for binary classification
     ''' 
     new_probe_dict = dict()
     new_train_dict = dict()
     for ((y_data, z_data), x_data) in probe_dict.items():
-        if y_data != 'live':
-            y_data = 'spoof'
+        if y_data != input_label:
+            y_data = neg_label
+        else:
+            y_data = pos_label
         new_probe_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in train_dict.items():
-        if y_data != 'live':
-            y_data = 'spoof'
+        if y_data != input_label:
+            y_data = neg_label
+        else:
+            y_data = pos_label
         new_train_dict[(y_data, z_data)] = x_data
     return new_train_dict, new_probe_dict
 
@@ -151,9 +157,11 @@ def siw_protocol_03(train_dict, probe_dict, category_out=2, max_frames=False, sk
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
+    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=int)
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/error_rates', type=str)
+    parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
     parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe.npy"), type=str)
@@ -161,9 +169,11 @@ def main():
     
     # Storing in variables
     args = parser.parse_args()
+    BAGGING = int(args.bagging)
     CHART_PATH = str(args.chart_path)
     DROP_FRAMES = int(args.drop_frames)
     ERROR_OUTCOME = str(args.error_outcome)
+    INSTANCES = int(args.instances)
     MAX_FRAMES = int(args.max_frames)
     SCENARIO = str(args.scenario)
     PROBE_FILE = str(args.probe_file)
@@ -176,6 +186,9 @@ def main():
         REPETITIONS = 4
     elif SCENARIO == 'three':
         REPETITIONS = 2
+    else:
+        raise ValueError('ERROR: Scenarios range from one through three.')
+        exit
 
     # Store all-interation results
     result_errors = dict()
@@ -190,21 +203,25 @@ def main():
         print('> ITERATION ' + str(index + 1))
         if SCENARIO == 'one':
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
-            c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
         elif SCENARIO == 'two':
             c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
         elif SCENARIO == 'three':
             c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
-            c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
-        else:
-            raise ValueError('ERROR: Scenarios range from one, two through three.')
-            exit
+
+        # Change into a binary problem
+        c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict, input_label='live', pos_label='live', neg_label='spoof')
+
+        # Print data size
+        print('Train size:', len(c_train_dict), sum([1 for (y_data, z_data) in c_train_dict.keys() if y_data == 'live']), sum([1 for (y_data, z_data) in c_train_dict.keys() if y_data != 'live']))
+        print('Probe size:', len(c_probe_dict), sum([1 for (y_data, z_data) in c_probe_dict.keys() if y_data == 'live']), sum([1 for (y_data, z_data) in c_probe_dict.keys() if y_data != 'live']))
 
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
-        spoofDet.trainPLS(components=10, iterations=1000) 
-        # spoofDet.trainSVM(kernel_type='linear', verbose=False)
+        if BAGGING:
+            spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES, components=10, iterations=1000) 
+        else:
+            spoofDet.trainPLS(components=10, iterations=1000)
 
         # Check whether class is ready to continue
         print('Classes: ', spoofDet.get_classes())
@@ -230,10 +247,9 @@ def main():
             if len(scores_dict):
                 if label == 'live':
                     result['labels'].append(+1)
-                    result['scores'].append(scores_dict['live'])
                 else:
                     result['labels'].append(-1)
-                    result['scores'].append(scores_dict['live'])
+                result['scores'].append(scores_dict['live'])
                 print(video_counter + 1, '>>', path, label, '>>', scores_dict, counter_dict)
             # Increment ERROR values
             if len(scores):
@@ -251,6 +267,13 @@ def main():
             else:
                 result_errors[label] = [error_dict[label]]
         print("ERROR RESULT", error_dict)
+
+        # Generate F-Measure and find best threshold
+        precision, recall, threshold = precision_recall_curve(result['labels'], result['scores'])
+        threshold = threshold.tolist()
+        threshold.append(threshold[-1])
+        fscores = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision, recall, threshold)]
+        print(fscores[0:3])
 
         # Save data to files
         result_labels.append(result['labels'])
