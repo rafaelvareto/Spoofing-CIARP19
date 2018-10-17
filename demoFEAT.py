@@ -166,6 +166,7 @@ def main():
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
     parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe.npy"), type=str)
     parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train.npy"), type=str)
+    parser.add_argument('-th', '--threshold', help='Set threshold for probe prediction', required=False, default=0.0, type=float)
     
     # Storing in variables
     args = parser.parse_args()
@@ -178,6 +179,7 @@ def main():
     SCENARIO = str(args.scenario)
     PROBE_FILE = str(args.probe_file)
     TRAIN_FILE = str(args.train_file)
+    THRESHOLD = float(args.threshold)
 
     # Determining number of iterations
     if SCENARIO == 'one':
@@ -241,7 +243,7 @@ def main():
         video_counter = 0
         for (label, path) in c_probe_dict.keys():
             counter_dict[label] += 1
-            scores = spoofDet.predict_feature(c_probe_dict[(label, path)])
+            scores = spoofDet.predict_feature(c_probe_dict[(label, path)], threshold=THRESHOLD)
             scores_dict = {label:value for (label,value) in scores}
             # Generate ROC Curve
             if len(scores_dict):
