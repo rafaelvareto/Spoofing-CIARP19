@@ -292,6 +292,7 @@ def main():
         plt.close()
 
     # Compute average APCER and BPCER
+    print(result_errors[label])
     for label in result_errors.keys():
         error_avg = np.mean(result_errors[label])
         error_std = np.std(result_errors[label])
