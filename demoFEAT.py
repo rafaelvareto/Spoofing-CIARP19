@@ -125,7 +125,7 @@ def siw_protocol_02(train_dict, probe_dict, medium_out=1, max_frames=False, skip
         subject, sensor, category, medium, session = tokenize_path(z_data)
         if (category == 1):
             new_train_dict[(y_data, z_data)] = x_data
-        elif (category == 3) and (medium != medium_out):
+        elif ((category == 2) or (category == 3)) and (medium != medium_out):
             new_train_dict[(y_data, z_data)] = x_data
     if skip_frames:
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
@@ -207,6 +207,7 @@ def main():
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
         elif SCENARIO == 'two':
             c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
+            c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
         elif SCENARIO == 'three':
             c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
 
@@ -296,6 +297,7 @@ def main():
     for label in result_errors.keys():
         error_avg = np.mean(result_errors[label])
         error_std = np.std(result_errors[label])
+        print("RESULTS per ITERATION:", label, result_errors[label])
         print("FINAL ERROR RESULT (label, avg, std):", label, error_avg, error_std)
 
 
