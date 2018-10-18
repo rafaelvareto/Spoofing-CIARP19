@@ -42,7 +42,7 @@ def get_residual_noise(gray_img, filter_type='median', kernel_size=7, gaussian_v
         raise ValueError('ERROR: Two smoothing methods available: median and gaussian')
     return noise
 
-def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,300), file_name='video_features.npy', show=False, verbose=False):
+def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,300), file_name='video_features.npy', saveCopy=False, show=False, verbose=False):
     descriptor = Descriptors()
     feature_list = list()
     label_list = list()
@@ -56,8 +56,9 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
         probe_fourcc = cv.VideoWriter_fourcc(*'MP42') 
         read_path = os.path.join(folder_path, path)
         read_video = cv.VideoCapture(read_path)
-        spec_video = cv.VideoWriter(read_path.replace('.mov', '_spec.avi'), probe_fourcc, 20.0, size, isColor=False)
-        tiny_video = cv.VideoWriter(read_path.replace('.mov', '_tiny.avi'), probe_fourcc, 20.0, size, isColor=True)
+        if saveCopy:
+            spec_video = cv.VideoWriter(read_path.replace('.mov', '_spec.avi'), probe_fourcc, 20.0, size, isColor=False)
+            tiny_video = cv.VideoWriter(read_path.replace('.mov', '_tiny.avi'), probe_fourcc, 20.0, size, isColor=True)
         while(read_video.isOpened()):
             ret, read_frame = read_video.read()
             if ret:
@@ -67,11 +68,13 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
                     read_noise = get_residual_noise(read_greyd, filter_type='median')
                     read_spect = get_fourier_spectrum(noise_img=read_noise)
                     read_featA = descriptor.get_hog_feature(image=read_greyd, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
-                    read_featB = descriptor.get_glcm_feature(image=read_spect, dists=[1,2], shades=20)
-                    read_feats = np.concatenate((read_featA, read_featB), axis=0)
+                    read_featB = descriptor.get_hog_feature(image=read_spect, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
+                    read_featC = descriptor.get_glcm_feature(image=read_spect, dists=[1,2], shades=20)
+                    read_feats = np.concatenate((read_featA, read_featB, read_featC), axis=0)
                     read_spect = (read_spect / np.max(read_spect)) * 255
-                    spec_video.write(read_spect.astype('uint8'))
-                    tiny_video.write(read_color)
+                    if saveCopy:
+                        spec_video.write(read_spect.astype('uint8'))
+                        tiny_video.write(read_color)
                     if show:
                         cv.imshow('face', read_color)
                         cv.imshow('spec', cv.normalize(read_spect, 0, 255, cv.NORM_MINMAX))
@@ -88,14 +91,16 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
             np.save(file_name, [feature_list, label_list, path_list])
     np.save(file_name, [feature_list, label_list, path_list])
     read_video.release()
-    spec_video.release()
-    tiny_video.release()
+    if saveCopy:
+        spec_video.release()
+        tiny_video.release()
 
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from Dataset')
     parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release"), type=str)
     parser.add_argument('-m', '--mode_exec', help='Choose to extract feature from Train or Test files', required=False, default='None', type=str)
+
     parser.add_argument('-te', '--testing_file', help='Path to testing txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/test_videos.txt"), type=str)
     parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/train_videos.txt"), type=str)
 
@@ -111,12 +116,12 @@ def main():
     train_set = load_txt_file(file_name=TRAIN_FILE)
 
     if MODE_EXEC == 'train':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(400,300), file_name='SiW-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(400,300), file_name='SiW-train-new.npy', verbose=True)
     elif MODE_EXEC == 'test':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(400,300), file_name='SiW-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(400,300), file_name='SiW-test-new.npy', verbose=True)
     elif MODE_EXEC == 'none':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(400,300), file_name='SiW-train.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(400,300), file_name='SiW-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(400,300), file_name='SiW-train-new.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(400,300), file_name='SiW-test-new.npy', verbose=True)
 
 if __name__ == "__main__":
     main()
