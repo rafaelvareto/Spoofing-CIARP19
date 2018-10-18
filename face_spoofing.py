@@ -61,12 +61,25 @@ class FaceSpoofing:
             rand_labels.extend(cat_labels)
         return rand_features, rand_labels
 
+    def __manage_bagging_results(self, dictionary, neg_list, pos_list):
+        pos_value = sum(pos_list)/len(pos_list)
+        neg_value = sum(neg_list)/len(neg_list)
+        if self._pos_label in dictionary:
+            dictionary[self._pos_label].append(pos_value)
+        else:
+            dictionary[self._pos_label] = [pos_value]
+        if self._neg_label in dictionary:
+            dictionary[self._neg_label].append(neg_value)
+        else:
+            dictionary[self._neg_label] = [neg_value]
+        return dictionary
+
     def __manage_results(self, dictionary, score_list):
         for (label, result) in score_list:
             if label in dictionary:
                 dictionary[label].append(result)
             else:
-                dictionary[label] = [result, ]
+                dictionary[label] = [result]
         for label in self.get_classes():
             if label not in dictionary:
                 dictionary[label] = [0.0]
@@ -191,9 +204,9 @@ class FaceSpoofing:
         elif self._type == 'EPLS' or self._type == 'ESVM':
             for feature in probe_features:
                 results = [float(model.predict(np.array([feature]))) for model in self._models]
-                labels = [self._pos_label if result > threshold else self._neg_label for result in results]
-                scores = list(map(lambda lab,res:(lab, np.abs(res)), labels, results))
-                class_dict = self.__manage_results(class_dict, scores)
+                neg_bin = [+1.0 if result <= threshold else 0.0 for result in results]
+                pos_bin = [+1.0 if result > threshold else 0.0 for result in results]
+                class_dict = self.__manage_bagging_results(class_dict, neg_bin, pos_bin)
         elif self._type == 'CNN':
             for feature in probe_features:
                 results = self._models.predict(array_image).ravel()
