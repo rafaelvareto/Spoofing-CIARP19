@@ -224,11 +224,13 @@ def main():
 
         if SCENARIO == 'one':
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
+            c_train_dict, c_valid_dict = set_aside_validation(c_train_dict, percent=ASIDE)
         elif SCENARIO == 'two':
             c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
             c_train_dict, c_valid_dict = set_aside_validation(c_train_dict, percent=ASIDE)
         elif SCENARIO == 'three':
             c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
+            c_train_dict, c_valid_dict = set_aside_validation(c_train_dict, percent=ASIDE)
 
         # Change into a binary problem
         c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict, input_label='live', pos_label='live', neg_label='spoof')
