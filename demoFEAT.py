@@ -166,6 +166,7 @@ def set_aside_validation(dictionary, percent=0.10):
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
+    parser.add_argument('-a', '--aside', help='Set percentage of dataset to be used for threshold estimation', required=False, default=False, type=float)
     parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=int)
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
@@ -179,6 +180,7 @@ def main():
     
     # Storing in variables
     args = parser.parse_args()
+    ASIDE = float(args.aside)
     BAGGING = int(args.bagging)
     CHART_PATH = str(args.chart_path)
     DROP_FRAMES = int(args.drop_frames)
@@ -188,7 +190,6 @@ def main():
     SCENARIO = str(args.scenario)
     PROBE_FILE = str(args.probe_file)
     TRAIN_FILE = str(args.train_file)
-    THRESHOLD = float(args.threshold)
 
     # Determining number of iterations
     if SCENARIO == 'one':
@@ -222,7 +223,7 @@ def main():
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
         elif SCENARIO == 'two':
             c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
-            c_train_dict, c_valid_dict = set_aside_validation(c_train_dict, percent=0.20)
+            c_train_dict, c_valid_dict = set_aside_validation(c_train_dict, percent=ASIDE)
         elif SCENARIO == 'three':
             c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
 
@@ -299,10 +300,9 @@ def main():
 
         # Generate F-Measure and find best threshold
         precision, recall, threshold = precision_recall_curve(result['labels'], result['scores'])
-        threshold = threshold.tolist()
-        threshold.append(threshold[-1])
-        fscores = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision, recall, threshold)]
-        thresholds[index] = fscores[0:3]
+        fscores = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision[:-1], recall[:-1], threshold)]
+        fscores.sort(key=lambda tup:tup[1], reverse=True)
+        thresholds[index] = fscores[0]
 
         # Save data to files
         result_labels.append(result['labels'])
