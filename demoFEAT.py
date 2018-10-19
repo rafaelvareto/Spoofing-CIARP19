@@ -99,6 +99,15 @@ def tuple_to_dict(file_name, binarize=False):
             new_dict[(y_data, z_data)] = [x_data]
     return new_dict
 
+def set_aside_validation(dictionary, percent=0.10):
+    keys_list = dictionary.keys()
+    num_samples = int(percent * len(keys_list))
+    keys_rand = random.sample(keys_list, num_samples)
+    keys_left = set(keys_list) - set(keys_rand)
+    valid_dictionary = {key:dictionary[key] for key in keys_rand}
+    prime_dictionary = {key:dictionary[key] for key in keys_left}
+    return prime_dictionary, valid_dictionary
+
 def siw_protocol_01(train_dict, probe_dict, max_frames=60):
     '''
     Set maximum number of frames per video for training samples
@@ -125,7 +134,7 @@ def siw_protocol_02(train_dict, probe_dict, medium_out=1, max_frames=False, skip
         subject, sensor, category, medium, session = tokenize_path(z_data)
         if (category == 1):
             new_train_dict[(y_data, z_data)] = x_data
-        elif ((category == 2) or (category == 3)) and (medium != medium_out):
+        elif ((category == 3) or (category == 3)) and (medium != medium_out):
             new_train_dict[(y_data, z_data)] = x_data
     if skip_frames:
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
@@ -157,10 +166,11 @@ def siw_protocol_03(train_dict, probe_dict, category_out=2, max_frames=False, sk
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
+    parser.add_argument('-a', '--aside', help='Set percentage of dataset to be used for threshold estimation', required=False, default=False, type=float)
     parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=int)
-    parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
+    parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
-    parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/error_rates', type=str)
+    parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/ERROR', type=str)
     parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
@@ -170,16 +180,19 @@ def main():
     
     # Storing in variables
     args = parser.parse_args()
+    ASIDE = float(args.aside)
     BAGGING = int(args.bagging)
     CHART_PATH = str(args.chart_path)
     DROP_FRAMES = int(args.drop_frames)
-    ERROR_OUTCOME = str(args.error_outcome)
+    DATA_PATH = 'saves/DATA'
+    ERROR_PATH = str(args.error_outcome)
     INSTANCES = int(args.instances)
     MAX_FRAMES = int(args.max_frames)
     SCENARIO = str(args.scenario)
     PROBE_FILE = str(args.probe_file)
     TRAIN_FILE = str(args.train_file)
-    THRESHOLD = float(args.threshold)
+
+    SAVE_NAME = '_' + SCENARIO + '_' + str(BAGGING) + '-' + str(INSTANCES) + '_' + str(DROP_FRAMES) + '-' + str(MAX_FRAMES) + '_' + str(ASIDE)
 
     # Determining number of iterations
     if SCENARIO == 'one':
@@ -193,9 +206,12 @@ def main():
         exit
 
     # Store all-interation results
+    max_neg_values = list()
+    min_pos_values = list()
     result_errors = dict()
     result_labels = list()
     result_scores = list()
+    thresholds = dict()
 
     # Split dataset into train and test sets
     train_dict = tuple_to_dict(TRAIN_FILE)
@@ -203,11 +219,14 @@ def main():
 
     for index in range(REPETITIONS):
         print('> ITERATION ' + str(index + 1))
+        max_neg_value = -10.0
+        min_pos_value = +10.0
+
         if SCENARIO == 'one':
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
         elif SCENARIO == 'two':
             c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
-            c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
+            c_train_dict, c_valid_dict = set_aside_validation(c_train_dict, percent=ASIDE)
         elif SCENARIO == 'three':
             c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
 
@@ -240,27 +259,36 @@ def main():
         result['labels'] = list()
         result['scores'] = list()
 
-        # Predict samples
+        # THRESHOLD: Predict samples
+        validation_labels = list()
+        validation_scores = list()
+        for (label, path) in c_valid_dict.keys():
+            pred_label, pred_score = spoofDet.predict_feature(c_valid_dict[(label, path)])
+            validation_labels.append(+1) if label == 'live' else validation_labels.append(-1)
+            validation_scores.append(pred_score)
+        precision, recall, threshold = precision_recall_curve(validation_labels, validation_scores)
+        fmeasure = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision[:-1], recall[:-1], threshold)]
+        fmeasure.sort(key=lambda tup:tup[1], reverse=True)
+        best_threshold = fmeasure[0][0]
+        print('SELECTED THRESHOLD', best_threshold)
+
+        # TEST: Predict samples
         video_counter = 0
         for (label, path) in c_probe_dict.keys():
             counter_dict[label] += 1
-            scores = spoofDet.predict_feature(c_probe_dict[(label, path)], threshold=THRESHOLD)
-            scores_dict = {label:value for (label,value) in scores}
+            pred_label, pred_score = spoofDet.predict_feature(c_probe_dict[(label, path)], threshold=best_threshold)
+            assert(pred_score is not None)
             # Generate ROC Curve
-            if len(scores_dict):
-                if label == 'live':
-                    result['labels'].append(+1)
-                else:
-                    result['labels'].append(-1)
-                result['scores'].append(scores_dict['live'])
-                print(video_counter + 1, '>>', path, label, '>>', scores_dict, counter_dict)
+            result['labels'].append(+1) if label == 'live' else result['labels'].append(-1)
+            result['scores'].append(pred_score)
+            # Update MIN and MAX values
+            if pred_score < min_pos_value and label == 'live': min_pos_value = pred_score 
+            if pred_score > max_neg_value and label != 'live': max_neg_value = pred_score
             # Increment ERROR values
-            if len(scores):
-                pred_label, pred_score = scores[0]
-                if pred_label != label:
-                    mistake_dict[label] += 1
+            if pred_label != label: mistake_dict[label] += 1
             # Increment counter
             video_counter += 1
+            print(video_counter, '>>', path, label, '>>', {pred_label:pred_score}, counter_dict)
 
         # Generate APCER, BPCER
         error_dict = {label:mistake_dict[label]/counter_dict[label] for label in instances}
@@ -269,36 +297,39 @@ def main():
                 result_errors[label].append(error_dict[label])
             else:
                 result_errors[label] = [error_dict[label]]
-        print("ERROR RESULT", error_dict)
+        max_neg_values.append(max_neg_value)
+        min_pos_values.append(min_pos_value)
+        print("ERROR RESULT", error_dict, 'max_neg_value:', max_neg_value, 'min_pos_value:', min_pos_value)
 
         # Generate F-Measure and find best threshold
         precision, recall, threshold = precision_recall_curve(result['labels'], result['scores'])
-        threshold = threshold.tolist()
-        threshold.append(threshold[-1])
-        fscores = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision, recall, threshold)]
-        print(fscores[0:3])
+        fscores = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision[:-1], recall[:-1], threshold)]
+        fscores.sort(key=lambda tup:tup[1], reverse=True)
+        thresholds[index] = fscores[0]
 
         # Save data to files
         result_labels.append(result['labels'])
         result_scores.append(result['scores'])
-        np.save('saves/data.npy', [result_errors, result_labels, result_scores])
-        with open(ERROR_OUTCOME + '.json', 'w') as out_file:
+        np.save(DATA_PATH + SAVE_NAME + '.npy', [result_errors, result_labels, result_scores])
+        with open(ERROR_PATH + SAVE_NAME + '.json', 'w') as out_file:
             out_file.write(json.dumps(result_errors))
 
         # Plot figures
         plt.figure()
         roc_data = MyPlots.merge_roc_curves(result_labels, result_scores, name='ROC Average')
         MyPlots.plt_roc_curves([roc_data,])
-        plt.savefig(CHART_PATH)
+        plt.savefig(CHART_PATH + SAVE_NAME + '.pdf')
         plt.close()
 
     # Compute average APCER and BPCER
-    print(result_errors[label])
+    print('\n------------------------------------------------------------------')
+    print('(THRESHOLDS, ROC ACCURACY)', thresholds)
+    print('\nMAX_NEG_VALUES:', max_neg_values, 'MIN_POS_VALUES:', min_pos_values)
+    print("ERROR RESULT per ITERATION:", result_errors)
     for label in result_errors.keys():
         error_avg = np.mean(result_errors[label])
         error_std = np.std(result_errors[label])
-        print("RESULTS per ITERATION:", label, result_errors[label])
-        print("FINAL ERROR RESULT (label, avg, std):", label, error_avg, error_std)
+        print("ERROR RESULT (label, avg, std):", label, error_avg, error_std)
 
 
 if __name__ == "__main__":
