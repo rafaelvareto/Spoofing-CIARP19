@@ -125,7 +125,7 @@ def siw_protocol_02(train_dict, probe_dict, medium_out=1, max_frames=False, skip
         subject, sensor, category, medium, session = tokenize_path(z_data)
         if (category == 1):
             new_train_dict[(y_data, z_data)] = x_data
-        elif ((category == 2) or (category == 3)) and (medium != medium_out):
+        elif ((category == 3) or (category == 3)) and (medium != medium_out):
             new_train_dict[(y_data, z_data)] = x_data
     if skip_frames:
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
@@ -153,6 +153,15 @@ def siw_protocol_03(train_dict, probe_dict, category_out=2, max_frames=False, sk
     if max_frames:
         new_train_dict = limit_frames(new_train_dict, max_frames=max_frames)
     return new_train_dict, new_probe_dict
+
+def set_aside_validation(dictionary, percent=0.10):
+    keys_list = dictionary.keys()
+    num_samples = int(percent * len(keys_list))
+    keys_rand = random.sample(keys_list, num_samples)
+    keys_left = set(keys_list) - set(keys_rand)
+    valid_dictionary = {key:dictionary[key] for key in keys_rand}
+    prime_dictionary = {key:dictionary[key] for key in keys_left}
+    return prime_dictionary, valid_dictionary
 
 def main():
     # Handle arguments
@@ -213,7 +222,7 @@ def main():
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
         elif SCENARIO == 'two':
             c_train_dict, c_probe_dict = siw_protocol_02(train_dict, probe_dict, medium_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
-            c_train_dict, c_probe_dict = binarize_label(c_train_dict, c_probe_dict)
+            c_train_dict, c_valid_dict = set_aside_validation(c_train_dict, percent=0.20)
         elif SCENARIO == 'three':
             c_train_dict, c_probe_dict = siw_protocol_03(train_dict, probe_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
 
@@ -246,11 +255,24 @@ def main():
         result['labels'] = list()
         result['scores'] = list()
 
-        # Predict samples
+        # THRESHOLD: Predict samples
+        validation_labels = list()
+        validation_scores = list()
+        for (label, path) in c_valid_dict.keys():
+            pred_label, pred_score = spoofDet.predict_feature(c_valid_dict[(label, path)])
+            validation_labels.append(+1) if label == 'live' else validation_labels.append(-1)
+            validation_scores.append(pred_score)
+        precision, recall, threshold = precision_recall_curve(validation_labels, validation_scores)
+        fmeasure = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision[:-1], recall[:-1], threshold)]
+        fmeasure.sort(key=lambda tup:tup[1], reverse=True)
+        best_threshold = fmeasure[0][0]
+        print('SELECTED THRESHOLD', best_threshold)
+
+        # TEST: Predict samples
         video_counter = 0
         for (label, path) in c_probe_dict.keys():
             counter_dict[label] += 1
-            pred_label, pred_score = spoofDet.predict_feature(c_probe_dict[(label, path)], threshold=THRESHOLD)
+            pred_label, pred_score = spoofDet.predict_feature(c_probe_dict[(label, path)], threshold=best_threshold)
             assert(pred_score is not None)
             # Generate ROC Curve
             result['labels'].append(+1) if label == 'live' else result['labels'].append(-1)
@@ -280,7 +302,7 @@ def main():
         threshold = threshold.tolist()
         threshold.append(threshold[-1])
         fscores = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision, recall, threshold)]
-        thresholds[index]= fscores[0:3]
+        thresholds[index] = fscores[0:3]
 
         # Save data to files
         result_labels.append(result['labels'])
