@@ -193,9 +193,12 @@ def main():
         exit
 
     # Store all-interation results
+    max_neg_values = list()
+    min_pos_values = list()
     result_errors = dict()
     result_labels = list()
     result_scores = list()
+    thresholds = dict()
 
     # Split dataset into train and test sets
     train_dict = tuple_to_dict(TRAIN_FILE)
@@ -203,6 +206,9 @@ def main():
 
     for index in range(REPETITIONS):
         print('> ITERATION ' + str(index + 1))
+        max_neg_value = -10.0
+        min_pos_value = +10.0
+
         if SCENARIO == 'one':
             c_train_dict, c_probe_dict = siw_protocol_01(train_dict, probe_dict, max_frames=60)
         elif SCENARIO == 'two':
@@ -244,23 +250,19 @@ def main():
         video_counter = 0
         for (label, path) in c_probe_dict.keys():
             counter_dict[label] += 1
-            scores = spoofDet.predict_feature(c_probe_dict[(label, path)], threshold=THRESHOLD)
-            scores_dict = {label:value for (label,value) in scores}
+            pred_label, pred_score = spoofDet.predict_feature(c_probe_dict[(label, path)], threshold=THRESHOLD)
+            assert(pred_score is not None)
             # Generate ROC Curve
-            if len(scores_dict):
-                if label == 'live':
-                    result['labels'].append(+1)
-                else:
-                    result['labels'].append(-1)
-                result['scores'].append(scores_dict['live'])
-                print(video_counter + 1, '>>', path, label, '>>', scores_dict, counter_dict)
+            result['labels'].append(+1) if label == 'live' else result['labels'].append(-1)
+            result['scores'].append(pred_score)
+            # Update MIN and MAX values
+            if pred_score < min_pos_value and label == 'live': min_pos_value = pred_score 
+            if pred_score > max_neg_value and label != 'live': max_neg_value = pred_score
             # Increment ERROR values
-            if len(scores):
-                pred_label, pred_score = scores[0]
-                if pred_label != label:
-                    mistake_dict[label] += 1
+            if pred_label != label: mistake_dict[label] += 1
             # Increment counter
             video_counter += 1
+            print(video_counter, '>>', path, label, '>>', {pred_label:pred_score}, counter_dict)
 
         # Generate APCER, BPCER
         error_dict = {label:mistake_dict[label]/counter_dict[label] for label in instances}
@@ -269,14 +271,16 @@ def main():
                 result_errors[label].append(error_dict[label])
             else:
                 result_errors[label] = [error_dict[label]]
-        print("ERROR RESULT", error_dict)
+        max_neg_values.append(max_neg_value)
+        min_pos_values.append(min_pos_value)
+        print("ERROR RESULT", error_dict, 'max_neg_value:', max_neg_value, 'min_pos_value:', min_pos_value)
 
         # Generate F-Measure and find best threshold
         precision, recall, threshold = precision_recall_curve(result['labels'], result['scores'])
         threshold = threshold.tolist()
         threshold.append(threshold[-1])
         fscores = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision, recall, threshold)]
-        print(fscores[0:3])
+        thresholds[index]= fscores[0:3]
 
         # Save data to files
         result_labels.append(result['labels'])
@@ -293,12 +297,14 @@ def main():
         plt.close()
 
     # Compute average APCER and BPCER
-    print(result_errors[label])
+    print('\n------------------------------------------------------------------')
+    print('(THRESHOLDS, ROC ACCURACY)', thresholds)
+    print('\nMAX_NEG_VALUES:', max_neg_values, 'MIN_POS_VALUES:', min_pos_values)
+    print("ERROR RESULT per ITERATION:", result_errors)
     for label in result_errors.keys():
         error_avg = np.mean(result_errors[label])
         error_std = np.std(result_errors[label])
-        print("RESULTS per ITERATION:", label, result_errors[label])
-        print("FINAL ERROR RESULT (label, avg, std):", label, error_avg, error_std)
+        print("ERROR RESULT (label, avg, std):", label, error_avg, error_std)
 
 
 if __name__ == "__main__":

@@ -193,27 +193,50 @@ class FaceSpoofing:
             video_counter += 1
             np.save(file_name, [self._features, self._labels])
 
-    def predict_feature(self, probe_features, threshold=0.0):
+    def predict_feature_oaa(self, probe_features, drop_frame, threshold):
         class_dict = dict()
-        if self._type == 'OAAPLS' or self._type == 'OAASVM':
-            for feature in probe_features:
+        for (index, feature) in enumerate(probe_features):
+            if index % drop_frame == 0:
                 results = [float(model[0].predict(np.array([feature]))) for model in self._models]
                 labels = [model[1] for model in self._models]
                 scores = list(map(lambda left,right:(left,right), labels, results))
                 class_dict = self.__manage_results(class_dict, scores)
-        elif self._type == 'EPLS' or self._type == 'ESVM':
-            for feature in probe_features:
+        class_list = self.__mean_and_sort(class_dict)
+        best_label, best_score = class_list[0]
+        return (best_label, best_score)
+
+    def predict_feature_bag(self, probe_features, drop_frame, threshold):
+        mean_list = list()
+        for (index, feature) in enumerate(probe_features):
+            if index % drop_frame == 0:
                 results = [float(model.predict(np.array([feature]))) for model in self._models]
-                neg_bin = [+1.0 if result <= threshold else 0.0 for result in results]
-                pos_bin = [+1.0 if result > threshold else 0.0 for result in results]
-                class_dict = self.__manage_bagging_results(class_dict, neg_bin, pos_bin)
-        elif self._type == 'CNN':
-            for feature in probe_features:
-                results = self._models.predict(array_image).ravel()
+                binnary = [+1.0 if result > 0.0 else 0.0 for result in results]
+                mean_list.append(sum(binnary) / len(binnary))
+        score = np.mean(mean_list)
+        label = self._pos_label if score >= threshold else self._neg_label
+        return (label, score)
+
+    def predict_feature_cnn(self, probe_features, drop_frame, threshold):
+        class_dict = dict()
+        for (index, feature) in enumerate(probe_features):
+            if index % drop_frame == 0:
+                results = self._models.predict(feature).ravel()
                 labels = [self._dictionary[index] for index in range(len(results))]
                 scores = list(map(lambda left,right:(left,right), labels, results))
                 class_dict = self.__manage_results(class_dict, scores)
-        return self.__mean_and_sort(class_dict)
+        class_list = self.__mean_and_sort(class_dict)
+        best_label, best_score = class_list[0]
+        return (best_label, best_score)
+
+    def predict_feature(self, probe_features, drop_frame=10, threshold=0.50):
+        if self._type == 'OAAPLS' or self._type == 'OAASVM':
+            return self.predict_feature_oaa(probe_features, drop_frame, threshold)
+        elif self._type == 'EPLS' or self._type == 'ESVM':
+            return self.predict_feature_bag(probe_features, drop_frame, threshold)
+        elif self._type == 'CNN':
+            return self.predict_feature_cnn(probe_features, drop_frame, threshold)
+        else:
+            return (None, None, None)
 
     def predict_image(self, probe_image):
         if self._type == 'OAAPLS' or self._type == 'OAASVM':
