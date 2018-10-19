@@ -99,6 +99,15 @@ def tuple_to_dict(file_name, binarize=False):
             new_dict[(y_data, z_data)] = [x_data]
     return new_dict
 
+def set_aside_validation(dictionary, percent=0.10):
+    keys_list = dictionary.keys()
+    num_samples = int(percent * len(keys_list))
+    keys_rand = random.sample(keys_list, num_samples)
+    keys_left = set(keys_list) - set(keys_rand)
+    valid_dictionary = {key:dictionary[key] for key in keys_rand}
+    prime_dictionary = {key:dictionary[key] for key in keys_left}
+    return prime_dictionary, valid_dictionary
+
 def siw_protocol_01(train_dict, probe_dict, max_frames=60):
     '''
     Set maximum number of frames per video for training samples
@@ -154,23 +163,14 @@ def siw_protocol_03(train_dict, probe_dict, category_out=2, max_frames=False, sk
         new_train_dict = limit_frames(new_train_dict, max_frames=max_frames)
     return new_train_dict, new_probe_dict
 
-def set_aside_validation(dictionary, percent=0.10):
-    keys_list = dictionary.keys()
-    num_samples = int(percent * len(keys_list))
-    keys_rand = random.sample(keys_list, num_samples)
-    keys_left = set(keys_list) - set(keys_rand)
-    valid_dictionary = {key:dictionary[key] for key in keys_rand}
-    prime_dictionary = {key:dictionary[key] for key in keys_left}
-    return prime_dictionary, valid_dictionary
-
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-a', '--aside', help='Set percentage of dataset to be used for threshold estimation', required=False, default=False, type=float)
     parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=int)
-    parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
+    parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
-    parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/error_rates', type=str)
+    parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/ERROR', type=str)
     parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
@@ -184,12 +184,15 @@ def main():
     BAGGING = int(args.bagging)
     CHART_PATH = str(args.chart_path)
     DROP_FRAMES = int(args.drop_frames)
-    ERROR_OUTCOME = str(args.error_outcome)
+    DATA_PATH = 'saves/DATA'
+    ERROR_PATH = str(args.error_outcome)
     INSTANCES = int(args.instances)
     MAX_FRAMES = int(args.max_frames)
     SCENARIO = str(args.scenario)
     PROBE_FILE = str(args.probe_file)
     TRAIN_FILE = str(args.train_file)
+
+    SAVE_NAME = '_' + SCENARIO + '_' + str(BAGGING) + '-' + str(INSTANCES) + '_' + str(DROP_FRAMES) + '-' + str(MAX_FRAMES) + '_' + str(ASIDE)
 
     # Determining number of iterations
     if SCENARIO == 'one':
@@ -307,15 +310,15 @@ def main():
         # Save data to files
         result_labels.append(result['labels'])
         result_scores.append(result['scores'])
-        np.save('saves/data.npy', [result_errors, result_labels, result_scores])
-        with open(ERROR_OUTCOME + '.json', 'w') as out_file:
+        np.save(DATA_PATH + SAVE_NAME + '.npy', [result_errors, result_labels, result_scores])
+        with open(ERROR_PATH + SAVE_NAME + '.json', 'w') as out_file:
             out_file.write(json.dumps(result_errors))
 
         # Plot figures
         plt.figure()
         roc_data = MyPlots.merge_roc_curves(result_labels, result_scores, name='ROC Average')
         MyPlots.plt_roc_curves([roc_data,])
-        plt.savefig(CHART_PATH)
+        plt.savefig(CHART_PATH + SAVE_NAME + '.pdf')
         plt.close()
 
     # Compute average APCER and BPCER
