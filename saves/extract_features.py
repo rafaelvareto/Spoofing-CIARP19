@@ -3,6 +3,7 @@ import cv2 as cv
 import json
 import numpy as np
 import os
+import os.path
 import random
 import sys
 
@@ -42,13 +43,13 @@ def get_residual_noise(gray_img, filter_type='median', kernel_size=7, gaussian_v
         raise ValueError('ERROR: Two smoothing methods available: median and gaussian')
     return noise
 
-def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,300), file_name='video_features.npy', import_file=True, saveCopy=False, show=False, verbose=False):
+def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,300), file_name='video_features.npy', saveCopy=False, show=False, verbose=False):
     descriptor = Descriptors()
     feature_list = list()
     label_list = list()
     path_list = list()
 
-    if import_file:
+    if os.path.isfile(file_name):
         print('>> Importing', file_name)
         feature_list, label_list, path_list = np.load(file_name)
         feature_list = list(feature_list)
