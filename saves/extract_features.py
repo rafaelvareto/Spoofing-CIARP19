@@ -49,7 +49,11 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
     path_list = list()
 
     if import_file:
+        print('>> Importing', file_name)
         feature_list, label_list, path_list = np.load(file_name)
+        feature_list = list(feature_list)
+        label_list = list(label_list)
+        path_list = list(path_list)
 
     inner_counter = overall_counter = 0
     for (path, label) in dataset_tuple:
