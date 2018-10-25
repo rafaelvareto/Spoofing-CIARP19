@@ -3,6 +3,7 @@ import cv2 as cv
 import json
 import numpy as np
 import os
+import os.path
 import random
 import sys
 
@@ -48,47 +49,59 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
     label_list = list()
     path_list = list()
 
-    video_counter = 0
+    if os.path.isfile(file_name):
+        print('>> Importing', file_name)
+        feature_list, label_list, path_list = np.load(file_name)
+        feature_list = list(feature_list)
+        label_list = list(label_list)
+        path_list = list(path_list)
+
+    inner_counter = overall_counter = 0
     for (path, label) in dataset_tuple:
-        if verbose:
-            print(video_counter + 1, path, label)
-        frame_counter = 0
-        probe_fourcc = cv.VideoWriter_fourcc(*'MP42') 
-        read_path = os.path.join(folder_path, path)
-        read_video = cv.VideoCapture(read_path)
-        if saveCopy:
-            spec_video = cv.VideoWriter(read_path.replace('.mov', '_spec.avi'), probe_fourcc, 20.0, size, isColor=False)
-            tiny_video = cv.VideoWriter(read_path.replace('.mov', '_tiny.avi'), probe_fourcc, 20.0, size, isColor=True)
-        while(read_video.isOpened()):
-            ret, read_frame = read_video.read()
-            if ret:
-                if frame_counter % frame_drop == 0:
-                    read_color = cv.resize(read_frame, (size[0], size[1]), interpolation=cv.INTER_AREA)
-                    read_greyd = cv.cvtColor(read_color, cv.COLOR_BGR2GRAY)
-                    read_noise = get_residual_noise(read_greyd, filter_type='median')
-                    read_spect = get_fourier_spectrum(noise_img=read_noise)
-                    read_featA = descriptor.get_hog_feature(image=read_greyd, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
-                    read_featB = descriptor.get_hog_feature(image=read_spect, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
-                    read_featC = descriptor.get_glcm_feature(image=read_spect, dists=[1,2], shades=20)
-                    read_feats = np.concatenate((read_featA, read_featB, read_featC), axis=0)
-                    read_spect = (read_spect / np.max(read_spect)) * 255
-                    if saveCopy:
-                        spec_video.write(read_spect.astype('uint8'))
-                        tiny_video.write(read_color)
-                    if show:
-                        cv.imshow('face', read_color)
-                        cv.imshow('spec', cv.normalize(read_spect, 0, 255, cv.NORM_MINMAX))
-                        cv.waitKey(1)
-                    if not np.any(np.isnan(read_feats)):
-                        feature_list.append(read_feats)
-                        label_list.append(label)
-                        path_list.append(path)
-            else:
-                break
-            frame_counter += 1
-        video_counter += 1
-        if video_counter % 100 == 0:
-            np.save(file_name, [feature_list, label_list, path_list])
+        if path not in path_list:
+            if verbose:
+                print(overall_counter + 1, inner_counter + 1, path, label)
+            frame_counter = 0
+            probe_fourcc = cv.VideoWriter_fourcc(*'MP42') 
+            read_path = os.path.join(folder_path, path)
+            read_video = cv.VideoCapture(read_path)
+            if saveCopy:
+                spec_video = cv.VideoWriter(read_path.replace('.mov', '_spec.avi'), probe_fourcc, 20.0, size, isColor=False)
+                tiny_video = cv.VideoWriter(read_path.replace('.mov', '_tiny.avi'), probe_fourcc, 20.0, size, isColor=True)
+            while(read_video.isOpened()):
+                ret, read_frame = read_video.read()
+                if ret:
+                    if frame_counter % frame_drop == 0:
+                        read_color = cv.resize(read_frame, (size[0], size[1]), interpolation=cv.INTER_AREA)
+                        read_greyd = cv.cvtColor(read_color, cv.COLOR_BGR2GRAY)
+                        read_noise = get_residual_noise(read_greyd, filter_type='median')
+                        read_spect = get_fourier_spectrum(noise_img=read_noise)
+                        read_featA = descriptor.get_hog_feature(image=read_greyd, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
+                        read_featB = descriptor.get_hog_feature(image=read_spect, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
+                        read_featC = descriptor.get_glcm_feature(image=read_spect, dists=[1,2], shades=20)
+                        read_feats = np.concatenate((read_featA, read_featB, read_featC), axis=0)
+                        read_spect = (read_spect / np.max(read_spect)) * 255
+                        if saveCopy:
+                            spec_video.write(read_spect.astype('uint8'))
+                            tiny_video.write(read_color)
+                        if show:
+                            cv.imshow('face', read_color)
+                            cv.imshow('spec', cv.normalize(read_spect, 0, 255, cv.NORM_MINMAX))
+                            cv.waitKey(1)
+                        if not np.any(np.isnan(read_feats)):
+                            feature_list.append(read_feats)
+                            label_list.append(label)
+                            path_list.append(path)
+                else:
+                    break
+                frame_counter += 1
+            inner_counter += 1
+            if inner_counter % 100 == 0:
+                np.save(file_name, [feature_list, label_list, path_list])
+        else:
+            if verbose:
+                print(overall_counter + 1, inner_counter + 1, path, label, 'WARNING: feature previously extracted!')
+        overall_counter += 1
     np.save(file_name, [feature_list, label_list, path_list])
     read_video.release()
     if saveCopy:
