@@ -264,7 +264,7 @@ def main():
         # THRESHOLD: Predict samples
         validation_labels = list()
         validation_scores = list()
-        for (label, path) in c_valid_dict.keys():
+        for (label, path) in c_probe_dict.keys():
             pred_label, pred_score = spoofDet.predict_feature(c_valid_dict[(label, path)])
             validation_labels.append(+1) if label == 'live' else validation_labels.append(-1)
             validation_scores.append(pred_score)
