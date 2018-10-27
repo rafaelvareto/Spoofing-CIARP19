@@ -339,7 +339,7 @@ class FaceSpoofing:
         self.save_model(file_name='saves/epls_model.npy')
 
     def trainESVM(self, models=50, samples4model=50, pos_label='live', neg_label='spoof', cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
-        from sklearn.cross_decomposition import PLSRegression
+        from sklearn.svm import LinearSVR, SVR, NuSVR
         self._models = list()
         self._neg_label = neg_label
         self._pos_label = pos_label
