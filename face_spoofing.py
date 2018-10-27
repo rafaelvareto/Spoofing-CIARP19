@@ -308,6 +308,20 @@ class FaceSpoofing:
             self._models.append((model, label))
         self.save_model(file_name='saves/pls_model.npy')
 
+    def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
+        from sklearn.svm import LinearSVR, SVR, NuSVR
+        self._type = 'OAASVM'
+        self._models = list()
+        print('Training One-Against-All SVM classifiers')
+        for label in self.get_classes():
+            if mode == 'libsvm': classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
+            elif mode == 'liblinear': classifier = LinearSVR(C=cpar, max_iter=iterations, verbose=verbose)
+            elif mode =='libsvm-nu': classifier = NuSVR(nu=0.5, C=cpar, kernel=kernel_type, verbose=verbose)            
+            boolean_label = [label == lab for lab in self._labels]
+            model = classifier.fit(np.array(self._features), np.array(boolean_label))
+            self._models.append((model, label))
+        self.save_model(file_name='saves/svm_model.npy')
+
     def trainEPLS(self, models=50, samples4model=50, pos_label='live', neg_label='spoof', components=10, iterations=500):
         from sklearn.cross_decomposition import PLSRegression
         self._models = list()
@@ -316,30 +330,31 @@ class FaceSpoofing:
         self._type = 'EPLS'
         print('Training an Embedding of PLS classifiers')
         for index in range(models):
-            rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
             classifier = PLSRegression(n_components=components, max_iter=iterations)
+            rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
             boolean_label = [+1.0 if self._pos_label == lab else -1.0 for lab in rand_labels]
             model = classifier.fit(np.array(rand_features), np.array(boolean_label))
             self._models.append(model)
             print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
         self.save_model(file_name='saves/epls_model.npy')
 
-    def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
-        from sklearn.svm import LinearSVR, SVR, NuSVR
-        self._type = 'OAASVM'
+    def trainESVM(self, models=50, samples4model=50, pos_label='live', neg_label='spoof', cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
+        from sklearn.cross_decomposition import PLSRegression
         self._models = list()
-        print('Training One-Against-All SVM classifiers')
-        for label in self.get_classes():
-            if mode == 'libsvm':
-                classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
-            elif mode == 'liblinear':
-                classifier = LinearSVR(C=cpar, max_iter=iterations, verbose=verbose)
-            elif mode =='libsvm-nu':
-                classifier = NuSVR(nu=0.5, C=cpar, kernel=kernel_type, verbose=verbose)            
-            boolean_label = [label == lab for lab in self._labels]
-            model = classifier.fit(np.array(self._features), np.array(boolean_label))
-            self._models.append((model, label))
-        self.save_model(file_name='saves/svm_model.npy') 
+        self._neg_label = neg_label
+        self._pos_label = pos_label
+        self._type = 'ESVM'
+        print('Training an Embedding of SVM classifiers')
+        for index in range(models):
+            if mode == 'libsvm': classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
+            elif mode == 'liblinear': classifier = LinearSVR(C=cpar, max_iter=iterations, verbose=verbose)
+            elif mode =='libsvm-nu': classifier = NuSVR(nu=0.5, C=cpar, kernel=kernel_type, verbose=verbose) 
+            rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
+            boolean_label = [+1.0 if self._pos_label == lab else -1.0 for lab in rand_labels]
+            model = classifier.fit(np.array(rand_features), np.array(boolean_label))
+            self._models.append(model)
+            print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
+        self.save_model(file_name='saves/esvm_model.npy')
 
     def trainCNN(self, batch=128, epoch=20, weightsPath=None): 
         self._type = 'CNN'
