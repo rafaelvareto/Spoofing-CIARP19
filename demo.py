@@ -4,6 +4,7 @@ import json
 import numpy as np
 import os
 import random
+import time
 
 import matplotlib
 matplotlib.use('Agg')
@@ -42,11 +43,11 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
-    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release"), type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/SiW-dataset"), type=str)
     parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='saves/error_rates', type=str)
     parser.add_argument('-r', '--repetitions', help='Number of executions [10..INF]', required=False, default=1, type=int)
-    parser.add_argument('-te', '--testing_file', help='Path to testing txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/test_videos.txt"), type=str)
-    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/train_videos.txt"), type=str)
+    parser.add_argument('-te', '--testing_file', help='Path to testing txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/SiW-dataset/directions-2-test.txt"), type=str)
+    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/SiW-dataset/directions-2-train.txt"), type=str)
     
     # Storing in variables
     args = parser.parse_args()
@@ -72,7 +73,7 @@ def main():
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, new_size=(400,300), verbose=True)
-        spoofDet.trainPLS(components=10, iterations=1000) 
+        spoofDet.trainEPLS(components=10, iterations=1000) 
         # spoofDet.trainSVM(kernel_type='linear', verbose=False)
 
         # Check whether class is ready to continue
@@ -95,7 +96,10 @@ def main():
             counter_dict[label] += 1
             probe_path = os.path.join(FOLDER_PATH, path)
             probe_video = cv.VideoCapture(probe_path)
-            scores = spoofDet.predict_video(probe_video, frame_drop=10)
+            frame_count = probe_video.get(cv.CAP_PROP_FRAME_COUNT)
+            start_time = time.time()
+            scores = spoofDet.predict_video(probe_video, drop_frame=10)
+            finish_time = time.time()
             scores_dict = {label:value for (label,value) in scores}
             # Generate ROC Curve
             if len(scores_dict):
@@ -105,7 +109,7 @@ def main():
                 else:
                     result['labels'].append(-1)
                     result['scores'].append(scores_dict['live'])
-                print(scores_dict)
+                print(scores_dict, frame_count, finish_time - start_time, frame_count / (finish_time - start_time))
             # Increment ERROR values
             if len(scores):
                 pred_label, pred_score = scores[0]
