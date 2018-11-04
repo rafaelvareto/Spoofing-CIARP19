@@ -73,8 +73,7 @@ def main():
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, new_size=(400,300), verbose=True)
-        spoofDet.trainEPLS(components=10, iterations=1000) 
-        # spoofDet.trainSVM(kernel_type='linear', verbose=False)
+        spoofDet.trainEPLS(models=100, samples4model=50, pos_label='live', neg_label='spoofing', components=10, iterations=1000) 
 
         # Check whether class is ready to continue
         assert('live' in spoofDet.get_classes())
@@ -88,35 +87,26 @@ def main():
         result = dict()
         result['labels'] = list()
         result['scores'] = list()
-        
-        # Predict samples
+
+        # TEST: Predict samples
         video_counter = 0
         for (path, label) in test_set:
-            print(video_counter + 1, '>> ', path, label)
             counter_dict[label] += 1
             probe_path = os.path.join(FOLDER_PATH, path)
             probe_video = cv.VideoCapture(probe_path)
             frame_count = probe_video.get(cv.CAP_PROP_FRAME_COUNT)
             start_time = time.time()
-            scores = spoofDet.predict_video(probe_video, drop_frame=10)
+            pred_label, pred_score = spoofDet.predict_video(probe_video, threshold=0.5)
             finish_time = time.time()
-            scores_dict = {label:value for (label,value) in scores}
+            assert(pred_score is not None)
             # Generate ROC Curve
-            if len(scores_dict):
-                if label == 'live':
-                    result['labels'].append(+1)
-                    result['scores'].append(scores_dict['live'])
-                else:
-                    result['labels'].append(-1)
-                    result['scores'].append(scores_dict['live'])
-                print(scores_dict, frame_count, finish_time - start_time, frame_count / (finish_time - start_time))
+            result['labels'].append(+1) if label == 'live' else result['labels'].append(-1)
+            result['scores'].append(pred_score)
             # Increment ERROR values
-            if len(scores):
-                pred_label, pred_score = scores[0]
-                if pred_label != label:
-                    mistake_dict[label] += 1
+            if pred_label != label: mistake_dict[label] += 1
             # Increment counter
             video_counter += 1
+            print(video_counter, '>>', label, '>', {pred_label:pred_score}, 'FPS:', frame_count / (finish_time - start_time))
 
         # Generate APCER, BPCER
         error_dict = {label:mistake_dict[label]/counter_dict[label] for label in instances}
@@ -140,10 +130,6 @@ def main():
         MyPlots.plt_roc_curves([roc_data,])
         plt.savefig(CHART_PATH)
         plt.close()
-                
-    # current_video = Video()
-    # current_video.set_input_video(VIDEO_PATH)
-    # current_video.play(spoofer=spoofDet, delay=1)
 
 if __name__ == "__main__":
     main()
