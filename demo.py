@@ -42,23 +42,28 @@ def split_train_test_sets(complete_tuple_list, train_set_size=0.8):
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
+    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=200, type=int)
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC_curve.pdf', type=str)
     parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/SiW-dataset"), type=str)
     parser.add_argument('-e', '--error_outcome', help='Json', required=False, default='saves/error_rates', type=str)
+    parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-r', '--repetitions', help='Number of executions [10..INF]', required=False, default=1, type=int)
     parser.add_argument('-te', '--testing_file', help='Path to testing txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/SiW-dataset/directions-2-test.txt"), type=str)
     parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/SiW-dataset/directions-2-train.txt"), type=str)
     
     # Storing in variables
     args = parser.parse_args()
+    BAGGING = int(args.bagging)
     CHART_PATH = str(args.chart_path)
     ERROR_OUTCOME = str(args.error_outcome)
+    INSTANCES = int(args.instances)
     FOLDER_PATH = str(args.folder_path)
     REPETITIONS = int(args.repetitions)
     TEST_FILE = str(args.testing_file)
     TRAIN_FILE = str(args.training_file)
 
     # Store all-interation results
+    frames_per_sec = list()
     result_errors = dict()
     result_labels = list()
     result_scores = list()
@@ -73,7 +78,7 @@ def main():
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=10, new_size=(400,300), verbose=True)
-        spoofDet.trainEPLS(models=100, samples4model=50, pos_label='live', neg_label='spoofing', components=10, iterations=1000) 
+        spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES, pos_label='live', neg_label='spoofing', components=10, iterations=1000) 
 
         # Check whether class is ready to continue
         assert('live' in spoofDet.get_classes())
@@ -104,9 +109,11 @@ def main():
             result['scores'].append(pred_score)
             # Increment ERROR values
             if pred_label != label: mistake_dict[label] += 1
-            # Increment counter
+            # Compute temporary values
+            frame_rate = frame_count / (finish_time - start_time)
+            frames_per_sec.append(frame_rate)
             video_counter += 1
-            print(video_counter, '>>', label, '>', {pred_label:pred_score}, 'FPS:', frame_count / (finish_time - start_time))
+            print(video_counter, '>>', label, '>', {pred_label:pred_score}, 'FPS:', frame_rate)
 
         # Generate APCER, BPCER
         error_dict = {label:mistake_dict[label]/counter_dict[label] for label in instances}
@@ -130,6 +137,8 @@ def main():
         MyPlots.plt_roc_curves([roc_data,])
         plt.savefig(CHART_PATH)
         plt.close()
+
+    print('Average FPS:', np.mean(frames_per_sec))
 
 if __name__ == "__main__":
     main()
