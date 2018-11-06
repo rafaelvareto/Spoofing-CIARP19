@@ -253,42 +253,23 @@ class FaceSpoofing:
         else:
             raise ValueError('Error predicting probe image') 
 
-    def predict_video(self, probe_video, frame_drop=10):
+    def predict_video(self, probe_video, drop_frame=10, threshold=0.50):
         frame_counter = 0
         class_dict = dict()
+        probe_features = list()
         while(probe_video.isOpened()):
             ret, probe_frame = probe_video.read()
             if ret:
-                if frame_counter % frame_drop == 0:
-                    if self._type == 'OAAPLS' or self._type == 'OAASVM':
-                        scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
-                        feature = self.gray2feat_pipeline(scaled_frame)
-                        if not np.any(np.isnan(feature)): 
-                            results = [float(model[0].predict(np.array([feature]))) for model in self._models]
-                            labels = [model[1] for model in self._models]
-                            scores = list(map(lambda left,right:(left,right), labels, results))
-                            class_dict = self.__manage_results(class_dict, scores)
-                    elif self._type == 'EPLS' or self._type == 'ESVM':
-                        scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
-                        feature = self.gray2feat_pipeline(scaled_frame)
-                    elif self._type == 'CNN': 
-                        scaled_image = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
-                        gray_image = self.get_gray_image(scaled_image) 
-                        spec_image = self.gray2spec_pipeline(scaled_image)
-                        if self._size[2] == 1:
-                            array_image = np.asarray([gray_image])
-                        elif self._size[2] == 3:
-                            array_image = np.asarray([scaled_image])
-                        results = self._models.predict(array_image).ravel()
-                        labels = [self._dictionary[index] for index in range(len(results))]
-                        scores = list(map(lambda left,right:(left,right), labels, results))
-                        class_dict = self.__manage_results(class_dict, scores)
-                    else:
-                        raise ValueError('Error predicting probe video')
-            else:
-                break
-            frame_counter += 1 
-        return self.__mean_and_sort(class_dict)
+                if frame_counter % drop_frame == 0:
+                    scaled_frame = cv.resize(probe_frame, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
+                    feature = self.gray2feat_pipeline(scaled_frame)
+                    probe_features.append(feature)
+                frame_counter += 1
+            else: break
+        if self._type == 'OAAPLS' or self._type == 'OAASVM': return self.predict_feature_oaa(probe_features, drop_frame=1, threshold=threshold)
+        elif self._type == 'EPLS' or self._type == 'ESVM': return self.predict_feature_bag(probe_features, drop_frame=1, threshold=threshold)
+        elif self._type == 'CNN': return self.predict_feature_cnn(probe_features, drop_frame=1, threshold=threshold)
+        else: return (None, None, None)
 
     def save_features(self, file_name='saves/train_feats.py'):
         np.save(file_name, [self._features, self._labels])
