@@ -243,9 +243,9 @@ def main():
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
         if BAGGING:
-            spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES, components=10, iterations=1000) 
+            spoofDet.trainESVM(models=BAGGING, samples4model=INSTANCES) 
         else:
-            spoofDet.trainPLS(components=10, iterations=1000)
+            spoofDet.trainSVM(components=10, iterations=1000)
 
         # Check whether class is ready to continue
         print('Classes: ', spoofDet.get_classes())
