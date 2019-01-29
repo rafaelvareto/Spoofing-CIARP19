@@ -96,7 +96,7 @@ def oulu_tokenize_path(path_name):
 def tuple_to_dict(file_name, binarize=False):
     print('Loading ', file_name)
     new_dict = dict()
-    feature_list, label_list, path_list = np.load(file_name)
+    feature_list, label_list, path_list = np.load(file_name, encoding="latin1")
     assert(feature_list.shape == label_list.shape == path_list.shape)
     for triplet in zip(feature_list, label_list, path_list):
         x_data, y_data, z_data = triplet[0], triplet[1], triplet[2]
@@ -212,7 +212,7 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-a', '--aside', help='Set percentage of dataset to be used for threshold estimation', required=False, default=False, type=float)
-    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=int)
+    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bagging-based approach', required=False, default=True, type=int)
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/ERROR', type=str)
@@ -293,9 +293,9 @@ def main():
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
         if BAGGING:
-            spoofDet.trainESVM(models=BAGGING, samples4model=INSTANCES) 
+            spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES) 
         else:
-            spoofDet.trainSVM(components=10, iterations=1000)
+            spoofDet.trainPLS(components=10, iterations=1000)
 
         # Check whether class is ready to continue
         print('Classes: ', spoofDet.get_classes())
@@ -314,12 +314,12 @@ def main():
         # THRESHOLD: Predict samples
         validation_labels = list()
         validation_scores = list()
-        for (label, path) in c_valid_dict.keys():
-            pred_label, pred_score = spoofDet.predict_feature(c_valid_dict[(label, path)])
+        for (label, path) in c_devel_dict.keys():
+            pred_label, pred_score = spoofDet.predict_feature(c_devel_dict[(label, path)])
             validation_labels.append(+1) if label == 'live' else validation_labels.append(-1)
             validation_scores.append(pred_score)
         precision, recall, threshold = precision_recall_curve(validation_labels, validation_scores)
-        fmeasure = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision[:-1], recall[:-1], threshold)]
+        fmeasure = [(thr, (2.0 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision[:-1], recall[:-1], threshold)]
         fmeasure.sort(key=lambda tup:tup[1], reverse=True)
         best_threshold = fmeasure[0][0]
         print('SELECTED THRESHOLD', best_threshold)
