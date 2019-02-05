@@ -212,16 +212,16 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-a', '--aside', help='Set percentage of dataset to be used for threshold estimation', required=False, default=False, type=float)
-    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bagging-based approach', required=False, default=True, type=int)
+    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bagging-based approach', required=False, default=False, type=int)
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/ERROR', type=str)
     parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
-    parser.add_argument('-dv', '--devel_file', help='Path to devel txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/OULU-dev.npy"), type=str)
-    parser.add_argument('-pr', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/OULU-test.npy"), type=str)
-    parser.add_argument('-tr', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/OULU-train.npy"), type=str)
+    parser.add_argument('-dv', '--devel_file', help='Path to devel txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-dev-540-960.npy"), type=str)
+    parser.add_argument('-pr', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-test-540-960.npy"), type=str)
+    parser.add_argument('-tr', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-train-540-960.npy"), type=str)
     parser.add_argument('-th', '--threshold', help='Set threshold for probe prediction', required=False, default=0.0, type=float)
     
     # Storing in variables
@@ -314,8 +314,8 @@ def main():
         # THRESHOLD: Predict samples
         validation_labels = list()
         validation_scores = list()
-        for (label, path) in c_devel_dict.keys():
-            pred_label, pred_score = spoofDet.predict_feature(c_devel_dict[(label, path)])
+        for (label, path) in c_probe_dict.keys():
+            pred_label, pred_score = spoofDet.predict_feature(c_probe_dict[(label, path)])
             validation_labels.append(+1) if label == 'live' else validation_labels.append(-1)
             validation_scores.append(pred_score)
         precision, recall, threshold = precision_recall_curve(validation_labels, validation_scores)
