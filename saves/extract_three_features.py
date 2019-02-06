@@ -25,6 +25,23 @@ def load_txt_file(file_name):
         this_list.append(components)
     return this_list
 
+def load_eye_file(file_name):
+    # num_frame, x_eye_left, y_eye_left, x_eye_right, y_eye_right
+    this_file = open(file_name, 'r')
+    this_list = list()
+    for line in this_file:
+        line = line.rstrip()
+        components = line.split(',')
+        this_list.append(components)
+    return this_list 
+
+def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=100, v_margin=110):
+    # num_frame, x_eye_left, y_eye_left, x_eye_right, y_eye_right
+    mean_x = int(np.mean([int(eye_tuple[1]), int(eye_tuple[3])]) * scale)
+    mean_y = int(np.mean([int(eye_tuple[2]), int(eye_tuple[4])]) * scale)
+    face_crop = color_img[mean_y-v_margin:mean_y+v_margin, mean_x-h_margin:mean_x+h_margin]
+    return color_img
+
 def get_fourier_spectrum(noise_img):
     fft_img = np.fft.fft2(noise_img)
     fts_img = np.fft.fftshift(fft_img)
@@ -43,7 +60,7 @@ def get_residual_noise(gray_img, filter_type='median', kernel_size=7, gaussian_v
         raise ValueError('ERROR: Two smoothing methods available: median and gaussian')
     return noise
 
-def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,300), file_name='video_features.npy', saveCopy=False, show=False, verbose=False):
+def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, file_name='video_features.npy', saveCopy=False, show=False, verbose=False):
     descriptor = Descriptors()
     feature_list = list()
     label_list = list()
@@ -61,28 +78,39 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
         if path not in path_list:
             frame_counter = 0
             probe_fourcc = cv.VideoWriter_fourcc(*'MP42') 
+
             read_path = os.path.join(folder_path, path)
             read_video = cv.VideoCapture(read_path)
+
+            annt_path = os.path.join(folder_path, path.replace('.avi', '.txt'))
+            annt_tuples = load_eye_file(annt_path)
 
             if saveCopy:
                 spec_video = cv.VideoWriter(read_path.replace('.mov', '_spec.avi'), probe_fourcc, 20.0, size, isColor=False)
                 tiny_video = cv.VideoWriter(read_path.replace('.mov', '_tiny.avi'), probe_fourcc, 20.0, size, isColor=True)
+
             while(read_video.isOpened()):
                 ret, read_frame = read_video.read()
                 if ret:
                     if frame_counter % frame_drop == 0:
+                        size = [int(scale * read_frame.shape[1]), int(scale * read_frame.shape[0])]
                         read_color = cv.resize(read_frame, (size[0], size[1]), interpolation=cv.INTER_AREA)
-                        read_hsvch = cv.cvtColor(read_color, cv.COLOR_BGR2HSV)
-                        read_ycrcb = cv.cvtColor(read_color, cv.COLOR_BGR2YCrCb)
+
                         read_greyd = cv.cvtColor(read_color, cv.COLOR_BGR2GRAY)
+                        read_hsvch = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2HSV), scale=scale, eye_tuple=annt_tuples[frame_counter])
+                        read_ycrcb = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2YCrCb), scale=scale, eye_tuple=annt_tuples[frame_counter])
+
                         read_noise = get_residual_noise(read_greyd, filter_type='median')
                         read_spect = get_fourier_spectrum(noise_img=read_noise)
+                        
                         read_featA = descriptor.get_hog_feature(image=read_greyd, pixel4cell=(96,96), cell4block=(1,1), orientation=8)
                         read_featB = descriptor.get_lbp_ch_feature(image=read_hsvch, bins=265, points=8, radius=1)
                         read_featC = descriptor.get_lbp_ch_feature(image=read_ycrcb, bins=265, points=8, radius=1)
                         read_featD = descriptor.get_glcm_feature(image=read_spect, dists=[1,2], shades=20)
+                        
                         read_feats = np.concatenate((read_featA, read_featB, read_featC, read_featD), axis=0)
                         read_spect = (read_spect / np.max(read_spect)) * 255
+                        
                         if saveCopy:
                             spec_video.write(read_spect.astype('uint8'))
                             tiny_video.write(np.hstack((read_hsvch, read_ycrcb)))
@@ -97,7 +125,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
                 else:
                     break
                 frame_counter += 1
-                
+
             if verbose:
                 print(overall_counter + 1, inner_counter + 1, path, label, len(read_featA), len(read_featB), len(read_featC), len(read_featD))
             if inner_counter % 100 == 0:
@@ -116,15 +144,17 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, size=(400,30
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from Dataset')
-    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-dataset/"), type=str)
+    parser.add_argument('-s', '--drop_frame', help='Define number of skipped frames', required=False, default=10, type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU"), type=str)
     parser.add_argument('-m', '--mode_exec', help='Choose to extract feature from Train or Test files', required=False, default='None', type=str)
 
-    parser.add_argument('-dv', '--develop_file', help='Path to develop txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-dataset/directions.txt"), type=str)
-    parser.add_argument('-te', '--testing_file', help='Path to testing txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-dataset/directions.txt"), type=str)
-    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-dataset/directions.txt"), type=str)
+    parser.add_argument('-dv', '--develop_file',  help='Path to develop txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/dev_videos.txt"), type=str)
+    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/test_videos.txt"), type=str)
+    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/train_videos.txt"), type=str)
 
     # Storing in variables
     args = parser.parse_args()
+    DROP_FRAME = int(args.drop_frame)
     FOLDER_PATH = str(args.folder_path)
     MODE_EXEC = str(args.mode_exec).lower()
     
@@ -138,15 +168,15 @@ def main():
     train_set = load_txt_file(file_name=TRAIN_FILE)
 
     if MODE_EXEC == 'train':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(405,720), file_name='OULU-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-train.npy', verbose=True)
     elif MODE_EXEC == 'test':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(405,720), file_name='OULU-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-test.npy', verbose=True)
     elif MODE_EXEC == 'dev':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=1, size=(405,720), file_name='OULU-dev.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-dev.npy', verbose=True)
     elif MODE_EXEC == 'none':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(405,720), file_name='OULU-train.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(405,720), file_name='OULU-test.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=1, size=(405,720), file_name='OULU-dev.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-dev.npy', verbose=True)
 
 if __name__ == "__main__":
     main()
