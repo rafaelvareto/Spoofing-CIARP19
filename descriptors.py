@@ -78,12 +78,19 @@ class Descriptors:
         int_image = self.convert_to_int(image)
         pass
 
-    def get_lbp_feature(self, image, bins=265):
+    def get_lbp_feature(self, image, bins=265, points=8, radius=1):
         int_image = self.convert_to_int(image)
-        feats = ski.feature.local_binary_pattern(int_image, P=24, R=8)
+        feats = ski.feature.local_binary_pattern(int_image, P=points, R=radius)
         hist = np.histogram(feats, normed=True, bins=bins)
         feature = hist[0].flatten()
         return self.__normalize(feature)
+
+    def get_lbp_ch_feature(self, image, bins=265, points=8, radius=1):
+        channel0 = self.get_lbp_feature(image[:,:,0], bins=bins, points=points, radius=radius)
+        channel1 = self.get_lbp_feature(image[:,:,1], bins=bins, points=points, radius=radius)
+        channel2 = self.get_lbp_feature(image[:,:,2], bins=bins, points=points, radius=radius)
+        feature = np.concatenate((channel0, channel1, channel2), axis=0)
+        return feature
 
     def get_orb_feature(self, image, kpoints=100):
         int_image = self.convert_to_int(image)

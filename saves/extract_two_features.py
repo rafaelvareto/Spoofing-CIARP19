@@ -126,14 +126,17 @@ def main():
     # Split dataset into train and test sets
     test_set = load_txt_file(file_name=TEST_FILE)
     train_set = load_txt_file(file_name=TRAIN_FILE)
-
+    
     if MODE_EXEC == 'train':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(400,300), file_name='SiW-train-new.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(405,720), file_name='OULU-train.npy', verbose=True)
     elif MODE_EXEC == 'test':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(400,300), file_name='SiW-test-new.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(405,720), file_name='OULU-test.npy', verbose=True)
+    elif MODE_EXEC == 'dev':
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=1, size=(405,720), file_name='OULU-dev.npy', verbose=True)
     elif MODE_EXEC == 'none':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(400,300), file_name='SiW-train-new.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(400,300), file_name='SiW-test-new.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=1, size=(405,720), file_name='OULU-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=1, size=(405,720), file_name='OULU-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=1, size=(405,720), file_name='OULU-dev.npy', verbose=True)
 
 if __name__ == "__main__":
     main()
