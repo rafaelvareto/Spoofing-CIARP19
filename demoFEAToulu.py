@@ -119,21 +119,22 @@ def oulu_protocol_01(devel_dict, probe_dict, train_dict, skip_frames=False):
     '''
     Train+Dev on sessions 1 and 2, leaving session 3 for test only
     File name information: Phone_Session_User_File.avi
+    1=real; 2=print1; 3=print2; 4=video-replay1; 5=video-replay2
     '''
     new_devel_dict = dict()
     new_probe_dict = dict()
     new_train_dict = dict()
     for ((y_data, z_data), x_data) in probe_dict.items():
         phone, session, user, medium = oulu_tokenize_path(z_data)
-        if (session == 3) and (user >= 36):
+        if (session == 3):
             new_probe_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in train_dict.items():
         phone, session, user, medium = oulu_tokenize_path(z_data)
-        if (session != 3) and (user < 36):
+        if (session != 3):
             new_train_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in devel_dict.items():
         phone, session, user, medium = oulu_tokenize_path(z_data)
-        if (session != 3) and (user < 36):
+        if (session != 3):
             new_devel_dict[(y_data, z_data)] = x_data
     if skip_frames:
         new_devel_dict = drop_frames(new_devel_dict, skip_frames=skip_frames)
@@ -141,32 +142,34 @@ def oulu_protocol_01(devel_dict, probe_dict, train_dict, skip_frames=False):
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
     return new_devel_dict, new_probe_dict, new_train_dict
 
-def oulu_protocol_02(devel_dict, probe_dict, train_dict, medium_out=1, max_frames=False, skip_frames=False):
+def oulu_protocol_02(devel_dict, probe_dict, train_dict, skip_frames=False):
     '''
-    Filter out media types that do not satisfy protocol two (replay attack) by keeping a single replay attack medium out at a time.
-    File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
+    Train+Dev on Files P1,D1, leaving Files P2,D2 for test only
+    File name information: Phone_Session_User_File.avi
+    1=real; 2=print1; 3=print2; 4=video-replay1; 5=video-replay2
     '''
+    new_devel_dict = dict()
     new_probe_dict = dict()
     new_train_dict = dict()
     for ((y_data, z_data), x_data) in probe_dict.items():
-        subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1):
-            new_probe_dict[(y_data, z_data)] = x_data
-        elif (category == 3) and (medium == medium_out):
+        phone, session, user, medium = oulu_tokenize_path(z_data)
+        if (medium == 1) or (medium == 3) or (medium == 5):
             new_probe_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in train_dict.items():
-        subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1):
+        phone, session, user, medium = oulu_tokenize_path(z_data)
+        if (medium == 1) or (medium == 2) or (medium == 4):
             new_train_dict[(y_data, z_data)] = x_data
-        elif ((category == 3) or (category == 3)) and (medium != medium_out):
-            new_train_dict[(y_data, z_data)] = x_data
+    for ((y_data, z_data), x_data) in devel_dict.items():
+        phone, session, user, medium = oulu_tokenize_path(z_data)
+        if (medium == 1) or (medium == 2) or (medium == 4):
+            new_devel_dict[(y_data, z_data)] = x_data
     if skip_frames:
+        new_devel_dict = drop_frames(new_devel_dict, skip_frames=skip_frames)
+        new_probe_dict = drop_frames(new_probe_dict, skip_frames=skip_frames)
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
-    if max_frames:
-        new_train_dict = limit_frames(new_train_dict, max_frames=max_frames)
-    return new_train_dict, new_probe_dict
+    return new_devel_dict, new_probe_dict, new_train_dict
 
-def oulu_protocol_03(devel_dict, probe_dict, train_dict, category_out=2, max_frames=False, skip_frames=False):
+def oulu_protocol_03(devel_dict, probe_dict, train_dict, phone_out=2, max_frames=False, skip_frames=False):
     '''
     Filter out media types that do not satisfy protocol three by performing a person attack testing from print to replay attack and vice-versa.
     File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
@@ -175,11 +178,11 @@ def oulu_protocol_03(devel_dict, probe_dict, train_dict, category_out=2, max_fra
     new_train_dict = dict()
     for ((y_data, z_data), x_data) in probe_dict.items():
         subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1) or (category == category_out):
+        if (category == 1) or (category == phone_out):
             new_probe_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in train_dict.items():
         subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1) or (category != category_out):
+        if (category == 1) or (category != phone_out):
             new_train_dict[(y_data, z_data)] = x_data
     if skip_frames:
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
@@ -187,7 +190,7 @@ def oulu_protocol_03(devel_dict, probe_dict, train_dict, category_out=2, max_fra
         new_train_dict = limit_frames(new_train_dict, max_frames=max_frames)
     return new_train_dict, new_probe_dict
 
-def oulu_protocol_04(devel_dict, probe_dict, train_dict, category_out=2, max_frames=False, skip_frames=False):
+def oulu_protocol_04(devel_dict, probe_dict, train_dict, phone_out=2, max_frames=False, skip_frames=False):
     '''
     Filter out media types that do not satisfy protocol three by performing a person attack testing from print to replay attack and vice-versa.
     File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
@@ -196,11 +199,11 @@ def oulu_protocol_04(devel_dict, probe_dict, train_dict, category_out=2, max_fra
     new_train_dict = dict()
     for ((y_data, z_data), x_data) in probe_dict.items():
         subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1) or (category == category_out):
+        if (category == 1) or (category == phone_out):
             new_probe_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in train_dict.items():
         subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1) or (category != category_out):
+        if (category == 1) or (category != phone_out):
             new_train_dict[(y_data, z_data)] = x_data
     if skip_frames:
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
@@ -276,11 +279,11 @@ def main():
         if SCENARIO == 'one':
             c_devel_dict, c_probe_dict, c_train_dict = oulu_protocol_01(devel_dict, probe_dict, train_dict, skip_frames=DROP_FRAMES)
         elif SCENARIO == 'two':
-            c_devel_dict, c_probe_dict, c_train_dict = oulu_protocol_02(devel_dict, probe_dict, train_dict, medium_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
+            c_devel_dict, c_probe_dict, c_train_dict = oulu_protocol_02(devel_dict, probe_dict, train_dict, skip_frames=DROP_FRAMES)
         elif SCENARIO == 'three':
-            c_devel_dict, c_probe_dict, c_train_dict = oulu_protocol_03(devel_dict, probe_dict, train_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
+            c_devel_dict, c_probe_dict, c_train_dict = oulu_protocol_03(devel_dict, probe_dict, train_dict, phone_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
         elif SCENARIO == 'four':
-            c_devel_dict, c_probe_dict, c_train_dict = oulu_protocol_04(devel_dict, probe_dict, train_dict, category_out=index+2, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
+            c_devel_dict, c_probe_dict, c_train_dict = oulu_protocol_04(devel_dict, probe_dict, train_dict, phone_out=index+1, max_frames=MAX_FRAMES, skip_frames=DROP_FRAMES)
 
         # Change into a binary problem
         c_devel_dict, c_probe_dict, c_train_dict = binarize_label(c_devel_dict, c_probe_dict, c_train_dict, input_label='live', pos_label='live', neg_label='spoof')
