@@ -42,6 +42,8 @@ def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=100, v_margin=11
     else:
         mean_x = int(np.mean([int(eye_tuple[1]), int(eye_tuple[3])]) * scale)
         mean_y = int(np.mean([int(eye_tuple[2]), int(eye_tuple[4])]) * scale)
+        if v_margin > mean_y: v_margin = mean_y - 1
+        if h_margin > mean_x: h_margin = mean_x - 2
         face_crop = color_img[(mean_y - v_margin):(mean_y + v_margin), (mean_x - h_margin):(mean_x + h_margin)]
         return face_crop
 
@@ -88,6 +90,8 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
             annt_path = os.path.join(folder_path, path.replace('.avi', '.txt'))
             annt_tuples = load_face_file(annt_path)
 
+            if verbose:
+                print(overall_counter + 1, inner_counter + 1, path, label)
             if saveCopy:
                 spec_video = cv.VideoWriter(read_path.replace('.mov', '_spec.avi'), probe_fourcc, 20.0, size, isColor=False)
                 tiny_video = cv.VideoWriter(read_path.replace('.mov', '_tiny.avi'), probe_fourcc, 20.0, size, isColor=True)
