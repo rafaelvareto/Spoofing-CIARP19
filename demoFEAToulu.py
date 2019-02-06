@@ -169,47 +169,59 @@ def oulu_protocol_02(devel_dict, probe_dict, train_dict, skip_frames=False):
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
     return new_devel_dict, new_probe_dict, new_train_dict
 
-def oulu_protocol_03(devel_dict, probe_dict, train_dict, phone_out=2, max_frames=False, skip_frames=False):
+def oulu_protocol_03(devel_dict, probe_dict, train_dict, phone_out=1, max_frames=False, skip_frames=False):
     '''
-    Filter out media types that do not satisfy protocol three by performing a person attack testing from print to replay attack and vice-versa.
-    File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
+    Train+Dev on all files but leave one phone type out for Testing
+    File name information: Phone_Session_User_File.avi
+    1=real; 2=print1; 3=print2; 4=video-replay1; 5=video-replay2
     '''
+    new_devel_dict = dict()
     new_probe_dict = dict()
     new_train_dict = dict()
     for ((y_data, z_data), x_data) in probe_dict.items():
-        subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1) or (category == phone_out):
+        phone, session, user, medium = oulu_tokenize_path(z_data)
+        if (phone_out == phone):
             new_probe_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in train_dict.items():
-        subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1) or (category != phone_out):
+        phone, session, user, medium = oulu_tokenize_path(z_data)
+        if (phone_out != phone):
             new_train_dict[(y_data, z_data)] = x_data
+    for ((y_data, z_data), x_data) in devel_dict.items():
+        phone, session, user, medium = oulu_tokenize_path(z_data)
+        if (phone_out != phone):
+            new_devel_dict[(y_data, z_data)] = x_data
     if skip_frames:
+        new_devel_dict = drop_frames(new_devel_dict, skip_frames=skip_frames)
+        new_probe_dict = drop_frames(new_probe_dict, skip_frames=skip_frames)
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
-    if max_frames:
-        new_train_dict = limit_frames(new_train_dict, max_frames=max_frames)
-    return new_train_dict, new_probe_dict
+    return new_devel_dict, new_probe_dict, new_train_dict
 
 def oulu_protocol_04(devel_dict, probe_dict, train_dict, phone_out=2, max_frames=False, skip_frames=False):
     '''
-    Filter out media types that do not satisfy protocol three by performing a person attack testing from print to replay attack and vice-versa.
-    File name information: SubjectID_SensorID_TypeID_MediumID_SessionID.mov
+    Train+Dev on all files but leave one phone type out for Testing
+    File name information: Phone_Session_User_File.avi
+    1=real; 2=print1; 3=print2; 4=video-replay1; 5=video-replay2
     '''
+    new_devel_dict = dict()
     new_probe_dict = dict()
     new_train_dict = dict()
     for ((y_data, z_data), x_data) in probe_dict.items():
-        subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1) or (category == phone_out):
+        phone, session, user, medium = oulu_tokenize_path(z_data)
+        if (phone_out == phone) and (session == 3):
             new_probe_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in train_dict.items():
-        subject, sensor, category, medium, session = oulu_tokenize_path(z_data)
-        if (category == 1) or (category != phone_out):
+        phone, session, user, medium = oulu_tokenize_path(z_data)
+        if (phone_out != phone) and (session != 3):
             new_train_dict[(y_data, z_data)] = x_data
+    for ((y_data, z_data), x_data) in devel_dict.items():
+        phone, session, user, medium = oulu_tokenize_path(z_data)
+        if (phone_out != phone) and (session != 3):
+            new_devel_dict[(y_data, z_data)] = x_data
     if skip_frames:
+        new_devel_dict = drop_frames(new_devel_dict, skip_frames=skip_frames)
+        new_probe_dict = drop_frames(new_probe_dict, skip_frames=skip_frames)
         new_train_dict = drop_frames(new_train_dict, skip_frames=skip_frames)
-    if max_frames:
-        new_train_dict = limit_frames(new_train_dict, max_frames=max_frames)
-    return new_train_dict, new_probe_dict
+    return new_devel_dict, new_probe_dict, new_train_dict
 
 def main():
     # Handle arguments
