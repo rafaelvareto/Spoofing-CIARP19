@@ -25,7 +25,7 @@ def load_txt_file(file_name):
         this_list.append(components)
     return this_list
 
-def load_eye_file(file_name):
+def load_face_file(file_name):
     # num_frame, x_eye_left, y_eye_left, x_eye_right, y_eye_right
     this_file = open(file_name, 'r')
     this_list = list()
@@ -37,10 +37,13 @@ def load_eye_file(file_name):
 
 def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=100, v_margin=110):
     # num_frame, x_eye_left, y_eye_left, x_eye_right, y_eye_right
-    mean_x = int(np.mean([int(eye_tuple[1]), int(eye_tuple[3])]) * scale)
-    mean_y = int(np.mean([int(eye_tuple[2]), int(eye_tuple[4])]) * scale)
-    face_crop = color_img[mean_y-v_margin:mean_y+v_margin, mean_x-h_margin:mean_x+h_margin]
-    return color_img
+    if eye_tuple[1] == eye_tuple[2] == eye_tuple[3] == eye_tuple[4]:
+        return color_img
+    else:
+        mean_x = int(np.mean([int(eye_tuple[1]), int(eye_tuple[3])]) * scale)
+        mean_y = int(np.mean([int(eye_tuple[2]), int(eye_tuple[4])]) * scale)
+        face_crop = color_img[(mean_y - v_margin):(mean_y + v_margin), (mean_x - h_margin):(mean_x + h_margin)]
+        return face_crop
 
 def get_fourier_spectrum(noise_img):
     fft_img = np.fft.fft2(noise_img)
@@ -83,7 +86,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
             read_video = cv.VideoCapture(read_path)
 
             annt_path = os.path.join(folder_path, path.replace('.avi', '.txt'))
-            annt_tuples = load_eye_file(annt_path)
+            annt_tuples = load_face_file(annt_path)
 
             if saveCopy:
                 spec_video = cv.VideoWriter(read_path.replace('.mov', '_spec.avi'), probe_fourcc, 20.0, size, isColor=False)
