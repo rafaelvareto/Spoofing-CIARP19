@@ -245,7 +245,7 @@ def main():
         if BAGGING:
             spoofDet.trainESVM(models=BAGGING, samples4model=INSTANCES) 
         else:
-            spoofDet.trainSVM(components=10, iterations=1000)
+            spoofDet.trainPLS(components=10, iterations=1000)
 
         # Check whether class is ready to continue
         print('Classes: ', spoofDet.get_classes())
