@@ -35,16 +35,14 @@ def load_face_file(file_name):
         this_list.append(components)
     return this_list 
 
-def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=100, v_margin=110):
+def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=0, v_margin=0):
     # (x,y) locations of the upper left corner and the botton right corner
-    if eye_tuple[0] == eye_tuple[1] == eye_tuple[2] == eye_tuple[3]:
+    if (len(eye_tuple) < 4) or (eye_tuple[0] == eye_tuple[1] == eye_tuple[2] == eye_tuple[3]):
         return color_img
     else:
-        mean_x = int(np.mean([int(eye_tuple[0]), int(eye_tuple[2])]) * scale)
-        mean_y = int(np.mean([int(eye_tuple[1]), int(eye_tuple[3])]) * scale)
-        if v_margin > mean_y: v_margin = mean_y - 1
-        if h_margin > mean_x: h_margin = mean_x - 2
-        face_crop = color_img[mean_y-v_margin:mean_y+v_margin, mean_x-h_margin:mean_x+h_margin]
+        bbox = [int(float(item) * scale) for item in eye_tuple]
+        bbox = [0 if item < 0 else item for item in bbox]
+        face_crop = color_img[bbox[1]-v_margin:bbox[3]+v_margin, bbox[0]-h_margin:bbox[2]+h_margin]
         return face_crop
 
 def get_fourier_spectrum(noise_img):
@@ -97,6 +95,8 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
                 tiny_video = cv.VideoWriter(read_path.replace('.mov', '_tiny.avi'), probe_fourcc, 20.0, size, isColor=True)
 
             while(read_video.isOpened()):
+                if frame_counter >= len(annt_tuples):
+                    break
                 ret, read_frame = read_video.read()
                 if ret:
                     if frame_counter % frame_drop == 0:
