@@ -133,12 +133,18 @@ class FaceSpoofing:
         return sample_spectrum 
 
     def gray2feat_pipeline(self, sample_image, show=False):
-        sample_gray = self.get_gray_image(color_img=sample_image)
+        sample_gray = cv.cvtColor(sample_image, cv.COLOR_BGR2GRAY)
+        sample_hsvs = cv.cvtColor(sample_image, cv.COLOR_BGR2HSV)
+        sample_ycrc = cv.cvtColor(sample_image, cv.COLOR_BGR2YCrCb)
+
         sample_noise = self.get_residual_noise(gray_img=sample_gray, filter_type='median')
         sample_spectrum = self.get_fourier_spectrum(noise_img=sample_noise)
-        sample_featureA = self._descriptor.get_hog_feature(image=sample_gray, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
-        sample_featureB = self._descriptor.get_glcm_feature(image=sample_spectrum, dists=[1,2], shades=20)
-        sample_feature = np.concatenate((sample_featureA, sample_featureB), axis=0)
+        
+        sample_featureA = self._descriptor.get_hog_feature(image=sample_gray, pixel4cell=(96,96), cell4block=(1,1), orientation=8)
+        sample_featureB = self._descriptor.get_lbp_ch_feature(image=sample_hsvs, bins=265, points=8, radius=1)
+        sample_featureC = self._descriptor.get_lbp_ch_feature(image=sample_ycrc, bins=265, points=8, radius=1)
+        sample_featureD = self._descriptor.get_glcm_feature(image=sample_spectrum, dists=[1,2], shades=20)
+        sample_feature = np.concatenate((sample_featureA, sample_featureB, sample_featureC, sample_featureD), axis=0)
         if show:
             cv.imshow('spectrum', cv.normalize(sample_spectrum, 0, 255, cv.NORM_MINMAX))
             cv.waitKey(1)
@@ -146,7 +152,7 @@ class FaceSpoofing:
 
     def import_features(self, feature_dict):
         for ((label, path), features) in feature_dict.items():
-            print('Imported Features: ', (label, path), len(features))
+            print('Imported Features: ', (label, path), len(features), len(features[0]))
             for feat in features:
                 self._features.append(feat)
                 self._labels.append(label)
