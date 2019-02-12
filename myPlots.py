@@ -185,7 +185,7 @@ class MyPlots():
     def plt_det_curves(self, scores, name='DET'):
         for score in scores:
             area = auc(score['x_axis'], score['y_axis'])
-            plt.plot(score['x_axis'], score['y_axis'], label='%s (area: %0.2f±%0.2f)' % (score['name'], score['avg'], score['std']))
+            plt.plot(score['x_axis'], score['y_axis'], label='%s (area: %0.2f+-%0.2f)' % (score['name'], score['avg'], score['std']))
         plt.xticks(fontsize=7)
         plt.yticks(fontsize=7)
         plt.xlim([0.0, 1.0])
@@ -200,7 +200,7 @@ class MyPlots():
     def plt_dir_curves(self, scores):
         for score in scores:
             area = auc(score['x_axis'], score['y_axis'])
-            plt.plot(score['x_axis'], score['y_axis'], label='%s (area: %0.2f±%0.2f)' % (score['name'], score['avg'], score['std']))
+            plt.plot(score['x_axis'], score['y_axis'], label='%s (area: %0.2f+-%0.2f)' % (score['name'], score['avg'], score['std']))
         plt.xticks(fontsize=7)
         plt.yticks(fontsize=7)
         plt.xlim([0.0, 1.0])
@@ -214,7 +214,7 @@ class MyPlots():
     @classmethod
     def plt_prc_curves(self, scores):
         for score in scores:
-            plt.plot(score['x_axis'], score['y_axis'], label='%s (area: %0.2f±%0.2f)' % (score['name'], score['avg'], score['std']))
+            plt.plot(score['x_axis'], score['y_axis'], label='%s (area: %0.2f+-%0.2f)' % (score['name'], score['avg'], score['std']))
         plt.xticks(fontsize=7)
         plt.yticks(fontsize=7)
         plt.xlim([0.0, 1.0])
@@ -229,7 +229,7 @@ class MyPlots():
     def plt_roc_curves(self, scores):
         for score in scores:
             area = auc(score['x_axis'], score['y_axis'])
-            plt.plot(score['x_axis'], score['y_axis'], label='%s (area: %0.2f±%0.2f)' % (score['name'], score['avg'], score['std']))
+            plt.plot(score['x_axis'], score['y_axis'], label='%s (area: %0.2f+-%0.2f)' % (score['name'], score['avg'], score['std']))
         plt.xticks(fontsize=7)
         plt.yticks(fontsize=7)
         plt.xlim([0.0, 1.0])

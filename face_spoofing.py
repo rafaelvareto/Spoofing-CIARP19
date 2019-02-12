@@ -10,9 +10,9 @@ import numpy as np
 import os
 import random
 
-from keras.models import Sequential 
-from keras.utils import np_utils
-from deep_learning import DeepLearning
+# from keras.models import Sequential 
+# from keras.utils import np_utils
+# from deep_learning import DeepLearning
 from descriptors import Descriptors
 
 
@@ -133,12 +133,18 @@ class FaceSpoofing:
         return sample_spectrum 
 
     def gray2feat_pipeline(self, sample_image, show=False):
-        sample_gray = self.get_gray_image(color_img=sample_image)
+        sample_gray = cv.cvtColor(sample_image, cv.COLOR_BGR2GRAY)
+        sample_hsvs = cv.cvtColor(sample_image, cv.COLOR_BGR2HSV)
+        sample_ycrc = cv.cvtColor(sample_image, cv.COLOR_BGR2YCrCb)
+
         sample_noise = self.get_residual_noise(gray_img=sample_gray, filter_type='median')
         sample_spectrum = self.get_fourier_spectrum(noise_img=sample_noise)
-        sample_featureA = self._descriptor.get_hog_feature(image=sample_gray, pixel4cell=(64,64), cell4block=(1,1), orientation=8)
-        sample_featureB = self._descriptor.get_glcm_feature(image=sample_spectrum, dists=[1,2], shades=20)
-        sample_feature = np.concatenate((sample_featureA, sample_featureB), axis=0)
+        
+        sample_featureA = self._descriptor.get_hog_feature(image=sample_gray, pixel4cell=(96,96), cell4block=(1,1), orientation=8)
+        sample_featureB = self._descriptor.get_lbp_ch_feature(image=sample_hsvs, bins=265, points=8, radius=1)
+        sample_featureC = self._descriptor.get_lbp_ch_feature(image=sample_ycrc, bins=265, points=8, radius=1)
+        sample_featureD = self._descriptor.get_glcm_feature(image=sample_spectrum, dists=[1,2], shades=20)
+        sample_feature = np.concatenate((sample_featureA, sample_featureB, sample_featureC, sample_featureD), axis=0)
         if show:
             cv.imshow('spectrum', cv.normalize(sample_spectrum, 0, 255, cv.NORM_MINMAX))
             cv.waitKey(1)
@@ -146,7 +152,7 @@ class FaceSpoofing:
 
     def import_features(self, feature_dict):
         for ((label, path), features) in feature_dict.items():
-            print('Imported Features: ', (label, path), len(features))
+            print('Imported Features: ', (label, path), len(features), len(features[0]))
             for feat in features:
                 self._features.append(feat)
                 self._labels.append(label)
@@ -289,6 +295,20 @@ class FaceSpoofing:
             self._models.append((model, label))
         self.save_model(file_name='saves/pls_model.npy')
 
+    def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
+        from sklearn.svm import LinearSVR, SVR, NuSVR
+        self._type = 'OAASVM'
+        self._models = list()
+        print('Training One-Against-All SVM classifiers')
+        for label in self.get_classes():
+            if mode == 'libsvm': classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
+            elif mode == 'liblinear': classifier = LinearSVR(C=cpar, max_iter=iterations, verbose=verbose)
+            elif mode =='libsvm-nu': classifier = NuSVR(nu=0.5, C=cpar, kernel=kernel_type, verbose=verbose)            
+            boolean_label = [label == lab for lab in self._labels]
+            model = classifier.fit(np.array(self._features), np.array(boolean_label))
+            self._models.append((model, label))
+        self.save_model(file_name='saves/svm_model.npy')
+
     def trainEPLS(self, models=50, samples4model=50, pos_label='live', neg_label='spoof', components=10, iterations=500):
         from sklearn.cross_decomposition import PLSRegression
         self._models = list()
@@ -297,40 +317,41 @@ class FaceSpoofing:
         self._type = 'EPLS'
         print('Training an Embedding of PLS classifiers')
         for index in range(models):
-            rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
             classifier = PLSRegression(n_components=components, max_iter=iterations)
+            rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
             boolean_label = [+1.0 if self._pos_label == lab else -1.0 for lab in rand_labels]
             model = classifier.fit(np.array(rand_features), np.array(boolean_label))
             self._models.append(model)
             print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
         self.save_model(file_name='saves/epls_model.npy')
 
-    def trainSVM(self, cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
+    def trainESVM(self, models=50, samples4model=50, pos_label='live', neg_label='spoof', cpar=1.0, mode='libsvm', kernel_type='linear', iterations=5000, verbose=False):
         from sklearn.svm import LinearSVR, SVR, NuSVR
-        self._type = 'OAASVM'
         self._models = list()
-        print('Training One-Against-All SVM classifiers')
-        for label in self.get_classes():
-            if mode == 'libsvm':
-                classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
-            elif mode == 'liblinear':
-                classifier = LinearSVR(C=cpar, max_iter=iterations, verbose=verbose)
-            elif mode =='libsvm-nu':
-                classifier = NuSVR(nu=0.5, C=cpar, kernel=kernel_type, verbose=verbose)            
-            boolean_label = [label == lab for lab in self._labels]
-            model = classifier.fit(np.array(self._features), np.array(boolean_label))
-            self._models.append((model, label))
-        self.save_model(file_name='saves/svm_model.npy') 
+        self._neg_label = neg_label
+        self._pos_label = pos_label
+        self._type = 'ESVM'
+        print('Training an Embedding of SVM classifiers')
+        for index in range(models):
+            if mode == 'libsvm': classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
+            elif mode == 'liblinear': classifier = LinearSVR(C=cpar, max_iter=iterations, verbose=verbose)
+            elif mode =='libsvm-nu': classifier = NuSVR(nu=0.5, C=cpar, kernel=kernel_type, verbose=verbose) 
+            rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
+            boolean_label = [+1.0 if self._pos_label == lab else -1.0 for lab in rand_labels]
+            model = classifier.fit(np.array(rand_features), np.array(boolean_label))
+            self._models.append(model)
+            print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
+        self.save_model(file_name='saves/esvm_model.npy')
 
-    def trainCNN(self, batch=128, epoch=20, weightsPath=None): 
-        self._type = 'CNN'
-        self.__build_dictionary()
-        print('Training CNN classifiers')
-        int_labels = [self._dictionary[label] for label in self._labels]
-        cat_labels = np_utils.to_categorical(int_labels, self.get_num_classes())
-        self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes(), weightsPath=weightsPath) 
-        if weightsPath is None:
-            self._models.fit(np.array(self._images), np.array(cat_labels), batch_size=batch, epochs=epoch, verbose=1)
-            self._models.save_weights('saves/cnn_model.h5', overwrite=True) 
+    # def trainCNN(self, batch=128, epoch=20, weightsPath=None): 
+    #     self._type = 'CNN'
+    #     self.__build_dictionary()
+    #     print('Training CNN classifiers')
+    #     int_labels = [self._dictionary[label] for label in self._labels]
+    #     cat_labels = np_utils.to_categorical(int_labels, self.get_num_classes())
+    #     self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes(), weightsPath=weightsPath) 
+    #     if weightsPath is None:
+    #         self._models.fit(np.array(self._images), np.array(cat_labels), batch_size=batch, epochs=epoch, verbose=1)
+    #         self._models.save_weights('saves/cnn_model.h5', overwrite=True) 
         
         
