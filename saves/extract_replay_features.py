@@ -43,7 +43,6 @@ def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=0, v_margin=0):
         bbox = [int(float(item) * scale) for item in eye_tuple]
         bbox = [0 if item < 0 else item for item in bbox]
         face_crop = color_img[bbox[2]-v_margin:bbox[2]+v_margin+bbox[4], bbox[1]-h_margin:bbox[1]+h_margin+bbox[3]]
-        #face_crop = color_img[bbox[1]-v_margin:bbox[3]+v_margin, bbox[0]-h_margin:bbox[2]+h_margin]
         return face_crop
 
 def get_fourier_spectrum(noise_img):
@@ -99,17 +98,12 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
                 ret, read_frame = read_video.read()
                 if ret:
                     if frame_counter % frame_drop == 0:
-                        print(annt_tuples[frame_counter])
-                        cv.imshow('frame', read_frame)
-
                         size = [int(scale * read_frame.shape[1]), int(scale * read_frame.shape[0])]
                         read_color = cv.resize(read_frame, (size[0], size[1]), interpolation=cv.INTER_AREA)
 
                         read_greyd = cv.cvtColor(read_color, cv.COLOR_BGR2GRAY)
                         read_hsvch = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2HSV), scale=scale, eye_tuple=annt_tuples[frame_counter])
                         read_ycrcb = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2YCrCb), scale=scale, eye_tuple=annt_tuples[frame_counter])
-                        cv.imshow('crop', read_ycrcb)
-                        cv.waitKey(0)
 
                         read_noise = get_residual_noise(read_greyd, filter_type='median')
                         read_spect = get_fourier_spectrum(noise_img=read_noise)
