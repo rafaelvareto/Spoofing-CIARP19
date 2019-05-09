@@ -152,11 +152,11 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from Dataset')
     parser.add_argument('-s', '--drop_frame', help='Define number of skipped frames', required=False, default=10, type=str)
-    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/SiW_release"), type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/SPOOF_IN_WILD"), type=str)
     parser.add_argument('-m', '--mode_exec', help='Choose to extract feature from Train or Test files', required=False, default='None', type=str)
 
-    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/SiW_release/test_videos.txt"), type=str)
-    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/SiW_release/train_videos.txt"), type=str)
+    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/SPOOF_IN_WILD/videos_test.txt"), type=str)
+    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/SPOOF_IN_WILD/videos_train.txt"), type=str)
 
     # Storing in variables
     args = parser.parse_args()
@@ -172,12 +172,12 @@ def main():
     train_set = load_txt_file(file_name=TRAIN_FILE)
 
     if MODE_EXEC == 'train':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=0.4, file_name='SIW-train.npy', verbose=True)
     elif MODE_EXEC == 'test':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=0.4, file_name='SIW-test.npy', verbose=True)
     elif MODE_EXEC == 'none':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-train.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=0.4, file_name='SIW-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=0.4, file_name='SIW-test.npy', verbose=True)
 
 if __name__ == "__main__":
     main()
