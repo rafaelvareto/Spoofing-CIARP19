@@ -27,7 +27,7 @@ def load_txt_file(file_name):
 
 def load_face_file(file_name):
     # (x,y) locations of the upper left corner and the botton right corner
-    this_file = open(file_name, 'r')
+    this_file = open(file_name, 'r', encoding='utf-8', errors='ignore')
     this_list = list()
     for line in this_file:
         line = line.rstrip()

@@ -86,7 +86,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
             read_path = os.path.join(folder_path, path)
             read_video = cv.VideoCapture(read_path)
 
-            annt_path = os.path.join(folder_path, path.replace('.avi', '.face'))
+            annt_path = os.path.join(folder_path, path.replace('.mp4', '.face'))
             annt_tuples = load_face_file(annt_path)
 
             if verbose:
@@ -105,8 +105,8 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
                         read_greyd = cv.cvtColor(read_color, cv.COLOR_BGR2GRAY)
                         read_hsvch = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2HSV), scale=scale, eye_tuple=annt_tuples[frame_counter])
                         read_ycrcb = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2YCrCb), scale=scale, eye_tuple=annt_tuples[frame_counter])
-                        cv.imshow('face', get_cropped_face(read_color, scale=scale, eye_tuple=annt_tuples[frame_counter]))
-                        cv.waitKey(0)
+                        # cv.imshow('face', get_cropped_face(read_color, scale=scale, eye_tuple=annt_tuples[frame_counter]))
+                        # cv.waitKey(0)
 
                         read_noise = get_residual_noise(read_greyd, filter_type='median')
                         read_spect = get_fourier_spectrum(noise_img=read_noise)
