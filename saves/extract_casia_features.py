@@ -30,7 +30,6 @@ def load_face_file(file_name):
     this_file = open(file_name, 'r', encoding='utf-8', errors='ignore')
     this_list = list()
     for line in this_file:
-        print(line)
         line = line.rstrip()
         components = line.split()
         this_list.append(components)
@@ -79,14 +78,14 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
 
     inner_counter = overall_counter = 0
     for (path, label) in dataset_tuple:
-        if path not in path_list:
+        if ('HR_' not in path) and (path not in path_list):
             frame_counter = 0
             probe_fourcc = cv.VideoWriter_fourcc(*'MP42') 
 
             read_path = os.path.join(folder_path, path)
             read_video = cv.VideoCapture(read_path)
 
-            annt_path = os.path.join(folder_path, path.replace('.mp4', '.face'))
+            annt_path = os.path.join(folder_path, path.replace('.avi', '.face'))
             annt_tuples = load_face_file(annt_path)
 
             if verbose:
@@ -152,7 +151,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from Dataset')
-    parser.add_argument('-s', '--drop_frame', help='Define number of skipped frames', required=False, default=05, type=str)
+    parser.add_argument('-s', '--drop_frame', help='Define number of skipped frames', required=False, default=5, type=str)
     parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/CASIA-FASD"), type=str)
     parser.add_argument('-m', '--mode_exec', help='Choose to extract feature from Train or Test files', required=False, default='None', type=str)
 
@@ -173,12 +172,12 @@ def main():
     train_set = load_txt_file(file_name=TRAIN_FILE)
 
     if MODE_EXEC == 'train':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.0, file_name='CASIA-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.1, file_name='CASIA-train.npy', verbose=True)
     elif MODE_EXEC == 'test':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='CASIA-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.1, file_name='CASIA-test.npy', verbose=True)
     elif MODE_EXEC == 'none':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.0, file_name='CASIA-train.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='CASIA-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.1, file_name='CASIA-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.1, file_name='CASIA-test.npy', verbose=True)
 
 if __name__ == "__main__":
     main()

@@ -104,6 +104,8 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
                         read_greyd = cv.cvtColor(read_color, cv.COLOR_BGR2GRAY)
                         read_hsvch = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2HSV), scale=scale, eye_tuple=annt_tuples[frame_counter])
                         read_ycrcb = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2YCrCb), scale=scale, eye_tuple=annt_tuples[frame_counter])
+                        # cv.imshow('face', get_cropped_face(read_color, scale=scale, eye_tuple=annt_tuples[frame_counter]))
+                        # cv.waitKey(0)
 
                         read_noise = get_residual_noise(read_greyd, filter_type='median')
                         read_spect = get_fourier_spectrum(noise_img=read_noise)
@@ -173,15 +175,15 @@ def main():
     train_set = load_txt_file(file_name=TRAIN_FILE)
 
     if MODE_EXEC == 'train':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=2.1, file_name='REPLAY-train.npy', verbose=True)
     elif MODE_EXEC == 'test':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=2.1, file_name='REPLAY-test.npy', verbose=True)
     elif MODE_EXEC == 'dev':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-dev.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=DROP_FRAME, scale=2.1, file_name='REPLAY-dev.npy', verbose=True)
     elif MODE_EXEC == 'none':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-train.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-test.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-dev.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=2.1, file_name='REPLAY-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=2.1, file_name='REPLAY-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=DROP_FRAME, scale=2.1, file_name='REPLAY-dev.npy', verbose=True)
 
 if __name__ == "__main__":
     main()

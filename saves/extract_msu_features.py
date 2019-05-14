@@ -27,8 +27,9 @@ def load_txt_file(file_name):
 
 def load_face_file(file_name):
     # Frame index, 4 coordinates of the face rectangle (left, top, right, bottom), 4 coordinates of the left and right eyes (xleft, yleft xright, yright)
-    this_file = open(file_name, 'r')
+    this_file = open(file_name, 'r', encoding='utf-8', errors='ignore')
     this_list = list()
+    print(file_name)
     for line in this_file:
         line = line.rstrip()
         components = line.split(',')
@@ -77,7 +78,6 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
         path_list = list(path_list)
 
     inner_counter = overall_counter = 0
-    print(dataset_tuple)
     for (path, label) in dataset_tuple:
         if path not in path_list:
             frame_counter = 0
@@ -86,7 +86,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
             read_path = os.path.join(folder_path, path)
             read_video = cv.VideoCapture(read_path)
 
-            annt_path = os.path.join(folder_path, path.replace('.mp4', '.face'))
+            annt_path = os.path.join(folder_path, path.replace('.mp4', '.face').replace('.mov', '.face'))
             annt_tuples = load_face_file(annt_path)
 
             if verbose:
@@ -153,11 +153,11 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from Dataset')
     parser.add_argument('-s', '--drop_frame', help='Define number of skipped frames', required=False, default=10, type=str)
-    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "/home/vareto/Downloads/MSU-MFSD"), type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/MSU-MFSD"), type=str)
     parser.add_argument('-m', '--mode_exec', help='Choose to extract feature from Train or Test files', required=False, default='None', type=str)
 
-    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "/home/vareto/Downloads/MSU-MFSD/videos_test.txt"), type=str)
-    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "/home/vareto/Downloads/MSU-MFSD/videos_train.txt"), type=str)
+    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/MSU-MFSD/videos_test.txt"), type=str)
+    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/MSU-MFSD/videos_train.txt"), type=str)
 
     # Storing in variables
     args = parser.parse_args()
@@ -173,12 +173,12 @@ def main():
     train_set = load_txt_file(file_name=TRAIN_FILE)
 
     if MODE_EXEC == 'train':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.0, file_name='MSU-train.npy', verbose=True)
     elif MODE_EXEC == 'test':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='MSU-test.npy', verbose=True)
     elif MODE_EXEC == 'none':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-test.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=DROP_FRAME, scale=1.0, file_name='REPLAY-dev.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='MSU-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.0, file_name='MSU-dev.npy', verbose=True)
 
 if __name__ == "__main__":
     main()
