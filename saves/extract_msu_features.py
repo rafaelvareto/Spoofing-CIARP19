@@ -136,7 +136,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
 
             if verbose:
                 print(overall_counter + 1, inner_counter + 1, path, label, len(read_featA), len(read_featB), len(read_featC), len(read_featD))
-            if inner_counter % 100 == 0:
+            if inner_counter % 50 == 0:
                 np.save(file_name, [feature_list, label_list, path_list])
             inner_counter += 1
         else:
