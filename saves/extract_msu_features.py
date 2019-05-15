@@ -26,25 +26,24 @@ def load_txt_file(file_name):
     return this_list
 
 def load_face_file(file_name):
-    # num_frame, x_eye_left, y_eye_left, x_eye_right, y_eye_right
-    this_file = open(file_name, 'r')
+    # Frame index, 4 coordinates of the face rectangle (left, top, right, bottom), 4 coordinates of the left and right eyes (xleft, yleft xright, yright)
+    this_file = open(file_name, 'r', encoding='utf-8', errors='ignore')
     this_list = list()
+    print(file_name)
     for line in this_file:
         line = line.rstrip()
         components = line.split(',')
         this_list.append(components)
     return this_list 
 
-def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=100, v_margin=110):
-    # num_frame, x_eye_left, y_eye_left, x_eye_right, y_eye_right
-    if eye_tuple[1] == eye_tuple[2] == eye_tuple[3] == eye_tuple[4]:
+def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=0, v_margin=0):
+    # Frame index, 4 coordinates of the face rectangle (left, top, right, bottom), 4 coordinates of the left and right eyes (xleft, yleft xright, yright)
+    if (len(eye_tuple) < 5) or (eye_tuple[1] == eye_tuple[2] == eye_tuple[3] == eye_tuple[4]):
         return color_img
     else:
-        mean_x = int(np.mean([int(eye_tuple[1]), int(eye_tuple[3])]) * scale)
-        mean_y = int(np.mean([int(eye_tuple[2]), int(eye_tuple[4])]) * scale)
-        if v_margin > mean_y: v_margin = mean_y - 1
-        if h_margin > mean_x: h_margin = mean_x - 2
-        face_crop = color_img[(mean_y - v_margin):(mean_y + v_margin), (mean_x - h_margin):(mean_x + h_margin)]
+        bbox = [int(float(item) * scale) for item in eye_tuple]
+        bbox = [0 if item < 0 else item for item in bbox]
+        face_crop = color_img[bbox[2]-h_margin:bbox[4]+h_margin, bbox[1]-v_margin:bbox[3]+v_margin]
         return face_crop
 
 def get_fourier_spectrum(noise_img):
@@ -87,7 +86,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
             read_path = os.path.join(folder_path, path)
             read_video = cv.VideoCapture(read_path)
 
-            annt_path = os.path.join(folder_path, path.replace('.avi', '.txt'))
+            annt_path = os.path.join(folder_path, path.replace('.mp4', '.face').replace('.mov', '.face'))
             annt_tuples = load_face_file(annt_path)
 
             if verbose:
@@ -106,6 +105,8 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
                         read_greyd = cv.cvtColor(read_color, cv.COLOR_BGR2GRAY)
                         read_hsvch = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2HSV), scale=scale, eye_tuple=annt_tuples[frame_counter])
                         read_ycrcb = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2YCrCb), scale=scale, eye_tuple=annt_tuples[frame_counter])
+                        # cv.imshow('face', get_cropped_face(read_color, scale=scale, eye_tuple=annt_tuples[frame_counter]))
+                        # cv.waitKey(0)
 
                         read_noise = get_residual_noise(read_greyd, filter_type='median')
                         read_spect = get_fourier_spectrum(noise_img=read_noise)
@@ -135,7 +136,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
 
             if verbose:
                 print(overall_counter + 1, inner_counter + 1, path, label, len(read_featA), len(read_featB), len(read_featC), len(read_featD))
-            if inner_counter % 100 == 0:
+            if inner_counter % 10 == 0:
                 np.save(file_name, [feature_list, label_list, path_list])
             inner_counter += 1
         else:
@@ -152,12 +153,11 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from Dataset')
     parser.add_argument('-s', '--drop_frame', help='Define number of skipped frames', required=False, default=10, type=str)
-    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU"), type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/MSU-MFSD"), type=str)
     parser.add_argument('-m', '--mode_exec', help='Choose to extract feature from Train or Test files', required=False, default='None', type=str)
 
-    parser.add_argument('-dv', '--develop_file',  help='Path to develop txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/videos_dev.txt"), type=str)
-    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/videos_test.txt"), type=str)
-    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/videos_train.txt"), type=str)
+    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/MSU-MFSD/videos_test.txt"), type=str)
+    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/MSU-MFSD/videos_train.txt"), type=str)
 
     # Storing in variables
     args = parser.parse_args()
@@ -165,25 +165,20 @@ def main():
     FOLDER_PATH = str(args.folder_path)
     MODE_EXEC = str(args.mode_exec).lower()
     
-    DEV_FILE = str(args.develop_file)
     TEST_FILE = str(args.testing_file)
     TRAIN_FILE = str(args.training_file)
 
     # Split dataset into train and test sets    
-    dev_set = load_txt_file(file_name=DEV_FILE)
     test_set = load_txt_file(file_name=TEST_FILE)
     train_set = load_txt_file(file_name=TRAIN_FILE)
 
     if MODE_EXEC == 'train':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.05, file_name='MSU-train.npy', verbose=True)
     elif MODE_EXEC == 'test':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-test.npy', verbose=True)
-    elif MODE_EXEC == 'dev':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-dev.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.05, file_name='MSU-test.npy', verbose=True)
     elif MODE_EXEC == 'none':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-train.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-test.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=dev_set, frame_drop=DROP_FRAME, scale=0.4, file_name='OULU-dev.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.05, file_name='MSU-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.05, file_name='MSU-dev.npy', verbose=True)
 
 if __name__ == "__main__":
     main()
