@@ -136,7 +136,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
 
             if verbose:
                 print(overall_counter + 1, inner_counter + 1, path, label, len(read_featA), len(read_featB), len(read_featC), len(read_featD))
-            if inner_counter % 50 == 0:
+            if inner_counter % 10 == 0:
                 np.save(file_name, [feature_list, label_list, path_list])
             inner_counter += 1
         else:
@@ -173,12 +173,12 @@ def main():
     train_set = load_txt_file(file_name=TRAIN_FILE)
 
     if MODE_EXEC == 'train':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.0, file_name='MSU-train.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.05, file_name='MSU-train.npy', verbose=True)
     elif MODE_EXEC == 'test':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='MSU-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.05, file_name='MSU-test.npy', verbose=True)
     elif MODE_EXEC == 'none':
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.0, file_name='MSU-test.npy', verbose=True)
-        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.0, file_name='MSU-dev.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=test_set, frame_drop=DROP_FRAME, scale=1.05, file_name='MSU-test.npy', verbose=True)
+        obtain_video_features(folder_path=FOLDER_PATH, dataset_tuple=train_set, frame_drop=DROP_FRAME, scale=1.05, file_name='MSU-dev.npy', verbose=True)
 
 if __name__ == "__main__":
     main()
