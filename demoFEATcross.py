@@ -19,19 +19,12 @@ from video import Video
 HOME = os.path.expanduser("~")
 
 
-def binarize_label(devel_dict, probe_dict, train_dict, input_label='live', pos_label='live', neg_label='spoof'):
+def binarize_label(train_dict, probe_dict, input_label='live', pos_label='live', neg_label='spoof'):
     '''
     Rename spoofing videos for binary classification
     ''' 
-    new_devel_dict = dict()
     new_probe_dict = dict()
     new_train_dict = dict()
-    for ((y_data, z_data), x_data) in devel_dict.items():
-        if y_data != input_label:
-            y_data = neg_label
-        else:
-            y_data = pos_label
-        new_devel_dict[(y_data, z_data)] = x_data
     for ((y_data, z_data), x_data) in probe_dict.items():
         if y_data != input_label:
             y_data = neg_label
@@ -44,7 +37,7 @@ def binarize_label(devel_dict, probe_dict, train_dict, input_label='live', pos_l
         else:
             y_data = pos_label
         new_train_dict[(y_data, z_data)] = x_data
-    return new_devel_dict, new_probe_dict, new_train_dict
+    return new_train_dict, new_probe_dict
 
 def drop_frames(sample_dict, skip_frames=10):
     '''
@@ -87,16 +80,16 @@ def split_train_test_sets(tuple_list, train_set_size=0.8):
         test_tuple.extend([(path, label) for path in test_set])
     return train_tuple, test_tuple
 
-def replay_tokenize_path(path_name):
+def tokenize_path(path_name):
     file_name = os.path.basename(path_name)
-    tokens = file_name.split('_') 
+    tokens = file_name.split('-') 
     numbers = [re.sub('[^0-9]', '', token) for token in tokens]
     return [int(number) for number in numbers]
 
 def tuple_to_dict(file_name, binarize=False):
     print('Loading ', file_name)
     new_dict = dict()
-    feature_list, label_list, path_list = np.load(file_name, encoding="latin1")
+    feature_list, label_list, path_list = np.load(file_name)
     assert(feature_list.shape == label_list.shape == path_list.shape)
     for triplet in zip(feature_list, label_list, path_list):
         x_data, y_data, z_data = triplet[0], triplet[1], triplet[2]
@@ -119,16 +112,15 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-a', '--aside', help='Set percentage of dataset to be used for threshold estimation', required=False, default=False, type=float)
-    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bagging-based approach', required=False, default=False, type=int)
+    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=int)
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC/', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/ERROR/', type=str)
     parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
-    parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='None', type=str)
-    parser.add_argument('-dv', '--devel_file', help='Path to devel txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/REPLAY-dev.npy"), type=str)
-    parser.add_argument('-pr', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/REPLAY-test.npy"), type=str)
-    parser.add_argument('-tr', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/REPLAY-train.npy"), type=str)
+    parser.add_argument('-n', '--name_data', help='Choose protocol execution', required=False, default='CASIA-MSU', type=str)
+    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/saves/MSU-test.npy"), type=str)
+    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/saves/CASIA-train.npy"), type=str)
     parser.add_argument('-th', '--threshold', help='Set threshold for probe prediction', required=False, default=0.0, type=float)
     
     # Storing in variables
@@ -141,13 +133,14 @@ def main():
     ERROR_PATH = str(args.error_outcome)
     INSTANCES = int(args.instances)
     MAX_FRAMES = int(args.max_frames)
-    SCENARIO = str(args.scenario)
-    DEVEL_FILE = str(args.devel_file)
+    NAME_DATA = str(args.name_data)
     PROBE_FILE = str(args.probe_file)
     TRAIN_FILE = str(args.train_file)
 
-    SAVE_NAME = '_' + SCENARIO + '_' + str(BAGGING) + '-' + str(INSTANCES) + '_' + str(DROP_FRAMES) + '-' + str(MAX_FRAMES) + '_' + str(ASIDE)
-    REPETITIONS = 1
+    SAVE_NAME = 'CROSS_' + NAME_DATA + '_' + str(BAGGING) + '-' + str(INSTANCES) + '_' + str(DROP_FRAMES) + '-' + str(MAX_FRAMES) + '_' + str(ASIDE)
+
+    # Determining number of iterations
+    REPETITIONS = 5
 
     # Store all-interation results
     max_neg_values = list()
@@ -158,17 +151,17 @@ def main():
     thresholds = dict()
 
     # Split dataset into train and test sets
-    devel_dict = tuple_to_dict(DEVEL_FILE)
-    probe_dict = tuple_to_dict(PROBE_FILE)
     train_dict = tuple_to_dict(TRAIN_FILE)
-    
+    probe_dict = tuple_to_dict(PROBE_FILE)
 
     for index in range(REPETITIONS):
         print('> ITERATION ' + str(index + 1))
         max_neg_value = -10.0
         min_pos_value = +10.0
 
-        c_devel_dict, c_probe_dict, c_train_dict = binarize_label(devel_dict, probe_dict, train_dict, input_label='live', pos_label='live', neg_label='spoof')
+        # Change into a binary problem
+        #c_train_dict, c_valid_dict = set_aside_validation(train_dict, percent=ASIDE)
+        c_train_dict, c_probe_dict = binarize_label(train_dict, probe_dict, input_label='live', pos_label='live', neg_label='spoof')
 
         # Print data size
         print('Train size:', len(c_train_dict), sum([1 for (y_data, z_data) in c_train_dict.keys() if y_data == 'live']), sum([1 for (y_data, z_data) in c_train_dict.keys() if y_data != 'live']))
@@ -204,7 +197,7 @@ def main():
             validation_labels.append(+1) if label == 'live' else validation_labels.append(-1)
             validation_scores.append(pred_score)
         precision, recall, threshold = precision_recall_curve(validation_labels, validation_scores)
-        fmeasure = [(thr, (2.0 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision[:-1], recall[:-1], threshold)]
+        fmeasure = [(thr, (2 * (pre * rec) / (pre + rec))) for pre, rec, thr in zip(precision[:-1], recall[:-1], threshold)]
         fmeasure.sort(key=lambda tup:tup[1], reverse=True)
         best_threshold = fmeasure[0][0]
         print('SELECTED THRESHOLD', best_threshold)
