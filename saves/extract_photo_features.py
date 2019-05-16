@@ -132,7 +132,7 @@ def obtain_image_features(folder_path, size=(640, 360), file_name='image_feature
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from folder containing images')
-    parser.add_argument('-f', '--folder_path', help='Path to image folder', required=False, default=os.path.join(HOME, "Desktop/WAX"), type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to image folder', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/datasets/WAX"), type=str)
 
     # Storing in variables
     args = parser.parse_args()
