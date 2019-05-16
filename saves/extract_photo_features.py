@@ -71,7 +71,9 @@ def obtain_image_features(folder_path, size=(640, 360), file_name='image_feature
 
     dir_list = [dir_item for _root, _path, _file in os.walk(folder_path) for dir_item in _file if dir_item.endswith('.jpg')]
     dir_list.sort()
-    name_list = [os.path.splitext(dir_item.replace('_face', ''))[0] for dir_item in dir_list]
+    name_list = [dir_item[:4] for dir_item in dir_list]
+    # name_list = [os.path.splitext(dir_item.replace('_face', ''))[0] for dir_item in dir_list]
+
 
     if os.path.isfile(file_name):
         print('>> Importing', file_name)
