@@ -174,6 +174,7 @@ def main():
             spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES) 
         else:
             spoofDet.trainPLS(components=10, iterations=1000)
+            # spoofDet.trainSVM(cpar=1.0, mode='libsvm')
 
         # Check whether class is ready to continue
         print('Classes: ', spoofDet.get_classes())
