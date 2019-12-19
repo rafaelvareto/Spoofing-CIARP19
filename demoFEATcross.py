@@ -89,7 +89,7 @@ def tokenize_path(path_name):
 def tuple_to_dict(file_name, binarize=False):
     print('Loading ', file_name)
     new_dict = dict()
-    feature_list, label_list, path_list = np.load(file_name)
+    feature_list, label_list, path_list = np.load(file_name, allow_pickle=True)
     assert(feature_list.shape == label_list.shape == path_list.shape)
     for triplet in zip(feature_list, label_list, path_list):
         x_data, y_data, z_data = triplet[0], triplet[1], triplet[2]
@@ -119,8 +119,8 @@ def main():
     parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-n', '--name_data', help='Choose protocol execution', required=False, default='CASIA-MSU', type=str)
-    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/saves/MSU-test.npy"), type=str)
-    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/saves/CASIA-train.npy"), type=str)
+    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/datasets/MSU-test.npy"), type=str)
+    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/datasets/CASIA-train.npy"), type=str)
     parser.add_argument('-th', '--threshold', help='Set threshold for probe prediction', required=False, default=0.0, type=float)
     
     # Storing in variables

@@ -14,11 +14,11 @@ samples_video = 4
 threshold_value = 0
 
 
-with open('./protocols_avi/Protocol-02-train.json') as infile:
+with open('./protocols_avi/Protocol-04-train.json') as infile:
 	train_json = json.load(infile)
-with open('./protocols_avi/Protocol-02-valid.json') as infile:
+with open('./protocols_avi/Protocol-04-valid.json') as infile:
 	valid_json = json.load(infile)
-with open('./protocols_avi/Protocol-02-test.json') as infile:
+with open('./protocols_avi/Protocol-04-test.json') as infile:
 	probe_json = json.load(infile)
 
 if os.path.isfile(feature_file):
@@ -72,7 +72,7 @@ for fold_idx in range(len(train_json)):
 	# fit the model
 	classifier = FaceSpoofing()
 	classifier.import_features(feature_dict=train_dict)
-	classifier.trainESVM(models=30, samples4model=20, pos_label='real', neg_label='wax') 
+	classifier.trainESVM(models=50, samples4model=30, pos_label='real', neg_label='wax') 
 
 	# THRESHOLD: Predict samples
 	validation_labels = list()
@@ -98,7 +98,7 @@ for fold_idx in range(len(train_json)):
 		evaluation_scores.append(pred_score)
 		if pred_label != label: mistake_dict[label] += 1
 		counter_dict[label] += 1
-	# Keep record of APCER, BPCER and ROC
+	# keep record of APCER, BPCER and ROC
 	errors_list.append({label:(mistake_dict[label]/counter_dict[label]) for label in counter_dict.keys()})
 	labels_list.append(evaluation_labels)
 	scores_list.append(evaluation_scores)
