@@ -154,7 +154,7 @@ class FaceSpoofing:
         for ((label, path), features) in feature_dict.items():
             print('Imported Features: ', (label, path), len(features), len(features[0]))
             for feat in features:
-                self._features.append(feat)
+                self._features.append(np.assarray(feat))
                 self._labels.append(label)
                 self._paths.append(path)
 
@@ -222,30 +222,32 @@ class FaceSpoofing:
         label = self._pos_label if score >= threshold else self._neg_label
         return (label, score)
 
-    def predict_feature_cnn(self, probe_features, drop_frame, threshold):
-        class_dict = dict()
+    def predict_feature_mlp(self, probe_features, drop_frame, threshold):
+        mean_list = list()
         for (index, feature) in enumerate(probe_features):
             if index % drop_frame == 0:
-                results = self._models.predict(feature).ravel()
-                labels = [self._dictionary[index] for index in range(len(results))]
-                scores = list(map(lambda left,right:(left,right), labels, results))
-                class_dict = self.__manage_results(class_dict, scores)
-        class_list = self.__mean_and_sort(class_dict)
-        best_label, best_score = class_list[0]
-        return (best_label, best_score)
+                afeature = np.array(feature)
+                print(afeature.shape)
+                # results = [float(model.predict(afeature.reshape(1, afeature.shape[0]))) for model in self._models]
+                results = [model.predict([afeature]) for model in self._models]
+                binnary = [+1.0 if result > 0.0 else 0.0 for result in results]
+                mean_list.append(sum(binnary) / len(binnary))
+        score = np.mean(mean_list)
+        label = self._pos_label if score >= threshold else self._neg_label
+        return (label, score)
 
     def predict_feature(self, probe_features, drop_frame=10, threshold=0.50):
-        if self._type == 'OAAPLS' or self._type == 'OAASVM':
+        if self._type in ['OAAPLS', 'OAASVM']:
             return self.predict_feature_oaa(probe_features, drop_frame, threshold)
-        elif self._type == 'EPLS' or self._type == 'ESVM':
+        elif self._type in ['EPLS', 'ESVM']:
             return self.predict_feature_bag(probe_features, drop_frame, threshold)
-        elif self._type == 'CNN':
-            return self.predict_feature_cnn(probe_features, drop_frame, threshold)
+        elif self._type in ['EMLP']:
+            return self.predict_feature_mlp(probe_features, drop_frame, threshold)
         else:
             return (None, None, None)
 
     def predict_image(self, probe_image):
-        if self._type == 'OAAPLS' or self._type == 'OAASVM':
+        if self._type in ['OAAPLS', 'OAASVM']:
             class_dict = dict()
             scaled_image = cv.resize(probe_image, (self._size[0], self._size[1]), interpolation=cv.INTER_AREA)
             feature = self.gray2feat_pipeline(scaled_image)
@@ -254,8 +256,6 @@ class FaceSpoofing:
             scores = list(map(lambda left,right:(left,right), labels, results))
             class_dict = self.__manage_results(class_dict, scores)
             return self.__mean_and_sort(class_dict)
-        elif self._type == 'CNN': 
-            pass 
         else:
             raise ValueError('Error predicting probe image') 
 
@@ -272,9 +272,12 @@ class FaceSpoofing:
                     probe_features.append(feature)
                 frame_counter += 1
             else: break
-        if self._type == 'OAAPLS' or self._type == 'OAASVM': return self.predict_feature_oaa(probe_features, drop_frame=1, threshold=threshold)
-        elif self._type == 'EPLS' or self._type == 'ESVM': return self.predict_feature_bag(probe_features, drop_frame=1, threshold=threshold)
-        elif self._type == 'CNN': return self.predict_feature_cnn(probe_features, drop_frame=1, threshold=threshold)
+        if self._type in ['OAAPLS', 'OAASVM']:
+            return self.predict_feature_oaa(probe_features, drop_frame=1, threshold=threshold)
+        elif self._type in ['EPLS', 'ESVM']:
+            return self.predict_feature_bag(probe_features, drop_frame=1, threshold=threshold)
+        elif self._type in ['EMLP']:
+            return self.predict_feature_mlp(probe_features, drop_frame=1, threshold=threshold)
         else: return (None, None, None)
 
     def save_features(self, file_name='saves/train_feats.py'):
@@ -315,7 +318,7 @@ class FaceSpoofing:
         self._neg_label = neg_label
         self._pos_label = pos_label
         self._type = 'EPLS'
-        print('Training an Embedding of PLS classifiers')
+        print('Training an Ensemble of PLS classifiers')
         for index in range(models):
             classifier = PLSRegression(n_components=components, max_iter=iterations)
             rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
@@ -331,7 +334,7 @@ class FaceSpoofing:
         self._neg_label = neg_label
         self._pos_label = pos_label
         self._type = 'ESVM'
-        print('Training an Embedding of SVM classifiers')
+        print('Training an Ensemble of SVM classifiers')
         for index in range(models):
             if mode == 'libsvm': classifier = SVR(C=cpar, kernel=kernel_type, verbose=verbose)
             elif mode == 'liblinear': classifier = LinearSVR(C=cpar, max_iter=iterations, verbose=verbose)
@@ -342,16 +345,34 @@ class FaceSpoofing:
             self._models.append(model)
             print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
         self.save_model(file_name='saves/esvm_model.npy')
-
-    # def trainCNN(self, batch=128, epoch=20, weightsPath=None): 
-    #     self._type = 'CNN'
-    #     self.__build_dictionary()
-    #     print('Training CNN classifiers')
-    #     int_labels = [self._dictionary[label] for label in self._labels]
-    #     cat_labels = np_utils.to_categorical(int_labels, self.get_num_classes())
-    #     self._models = DeepLearning.build_LeNet(width=self._size[0], height=self._size[1], depth=self._size[2], nclasses=self.get_num_classes(), weightsPath=weightsPath) 
-    #     if weightsPath is None:
-    #         self._models.fit(np.array(self._images), np.array(cat_labels), batch_size=batch, epochs=epoch, verbose=1)
-    #         self._models.save_weights('saves/cnn_model.h5', overwrite=True) 
         
-        
+    def trainEMLP(self, models=50, samples4model=50, pos_label='live', neg_label='spoof'):
+        import keras
+        import keras.models
+        import keras.backend.tensorflow_backend as keras_backend
+        import tensorflow
+        from keras.models import Sequential as keras_sequential
+        from keras.layers import Dense as keras_dense 
+        from keras.layers import Dropout as keras_dropout
+        from keras.utils import np_utils as keras_np_utils
+        def getModel(input_shape, nneuros=64, nclasses=2):
+            model = keras_sequential()
+            model.add(keras_dense(nneuros, activation='relu', input_shape=input_shape))
+            model.add(keras_dropout(0.2))
+            model.add(keras_dense(nclasses, activation='softmax'))
+            model.compile(loss='categorical_crossentropy', optimizer='adadelta', metrics=['accuracy'])#RMSprop()
+            return model
+        self._models = list()
+        self._neg_label = neg_label
+        self._pos_label = pos_label
+        self._type = 'EMLP'
+        print('Training an Ensemble of MLP classifiers')
+        for index in range(models):
+            rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
+            bool_labels = [+1.0 if self._pos_label == lab else -1.0 for lab in rand_labels]
+            cate_labels = keras_np_utils.to_categorical(bool_labels, 2)
+            model = getModel(input_shape=rand_features[0].shape)
+            model.fit(np.array(rand_features), np.array(cate_labels), batch_size=40, nb_epoch=100, verbose=0)
+            self._models.append(model)
+            print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
+        self.save_model(file_name='saves/esvm_model.npy')
