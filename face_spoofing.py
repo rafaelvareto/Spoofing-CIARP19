@@ -154,7 +154,7 @@ class FaceSpoofing:
         for ((label, path), features) in feature_dict.items():
             print('Imported Features: ', (label, path), len(features), len(features[0]))
             for feat in features:
-                self._features.append(np.assarray(feat))
+                self._features.append(np.asarray(feat))
                 self._labels.append(label)
                 self._paths.append(path)
 
@@ -225,11 +225,12 @@ class FaceSpoofing:
     def predict_feature_mlp(self, probe_features, drop_frame, threshold):
         mean_list = list()
         for (index, feature) in enumerate(probe_features):
+            print(feature.shape, feature)
             if index % drop_frame == 0:
-                afeature = np.array(feature)
-                print(afeature.shape)
+                afeature = np.asarray(feature)
+                # print(afeature, afeature.shape)
                 # results = [float(model.predict(afeature.reshape(1, afeature.shape[0]))) for model in self._models]
-                results = [model.predict([afeature]) for model in self._models]
+                results = [model.predict(afeature[0:1]) for model in self._models]
                 binnary = [+1.0 if result > 0.0 else 0.0 for result in results]
                 mean_list.append(sum(binnary) / len(binnary))
         score = np.mean(mean_list)
@@ -375,4 +376,5 @@ class FaceSpoofing:
             model.fit(np.array(rand_features), np.array(cate_labels), batch_size=40, nb_epoch=100, verbose=0)
             self._models.append(model)
             print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
+        print('Feature Shape', rand_features[0].shape)
         self.save_model(file_name='saves/esvm_model.npy')

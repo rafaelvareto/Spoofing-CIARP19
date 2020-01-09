@@ -112,15 +112,15 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Demo file for running Face Spoofing Detection')
     parser.add_argument('-a', '--aside', help='Set percentage of dataset to be used for threshold estimation', required=False, default=False, type=float)
-    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=False, type=int)
+    parser.add_argument('-b', '--bagging', help='Determine whether to run single or bassing-based approach', required=False, default=10, type=int)
     parser.add_argument('-c', '--chart_path', help='Path to save chart file', required=False, default='saves/ROC/', type=str)
     parser.add_argument('-d', '--drop_frames', help='Skip some frames for training', required=False, default=False, type=int)
     parser.add_argument('-e', '--error_outcome', help='Json containing output APCER and BPCER', required=False, default='saves/ERROR/', type=str)
     parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-n', '--name_data', help='Choose protocol execution', required=False, default='CASIA-MSU', type=str)
-    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/datasets/MSU-test.npy"), type=str)
-    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/datasets/CASIA-train.npy"), type=str)
+    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/CASIA-test.npy"), type=str)
+    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/CASIA-train.npy"), type=str)
     parser.add_argument('-th', '--threshold', help='Set threshold for probe prediction', required=False, default=0.0, type=float)
     
     # Storing in variables
@@ -191,11 +191,17 @@ def main():
         result['labels'] = list()
         result['scores'] = list()
 
+        # for (key, value) in c_probe_dict.items():
+        #     print(key)
+        #     print(value, value[0].shape)
+        #     input()
+
         # THRESHOLD: Predict samples
         validation_labels = list()
         validation_scores = list()
         for (label, path) in c_probe_dict.keys():
-            pred_label, pred_score = spoofDet.predict_feature(c_probe_dict[(label, path)])
+            probe_feats = c_probe_dict[(label, path)]
+            pred_label, pred_score = spoofDet.predict_feature(probe_feats)
             validation_labels.append(+1) if label == 'live' else validation_labels.append(-1)
             validation_scores.append(pred_score)
         precision, recall, threshold = precision_recall_curve(validation_labels, validation_scores)
@@ -208,7 +214,8 @@ def main():
         video_counter = 0
         for (label, path) in c_probe_dict.keys():
             counter_dict[label] += 1
-            pred_label, pred_score = spoofDet.predict_feature(c_probe_dict[(label, path)], threshold=best_threshold)
+            probe_feats = c_probe_dict[(label, path)]
+            pred_label, pred_score = spoofDet.predict_feature(probe_feats, threshold=best_threshold)
             assert(pred_score is not None)
             # Generate ROC Curve
             result['labels'].append(+1) if label == 'live' else result['labels'].append(-1)
