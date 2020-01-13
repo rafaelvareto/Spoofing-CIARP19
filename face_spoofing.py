@@ -225,13 +225,11 @@ class FaceSpoofing:
     def predict_feature_mlp(self, probe_features, drop_frame, threshold):
         mean_list = list()
         for (index, feature) in enumerate(probe_features):
-            print(feature.shape, feature)
             if index % drop_frame == 0:
                 afeature = np.asarray(feature)
-                # print(afeature, afeature.shape)
-                # results = [float(model.predict(afeature.reshape(1, afeature.shape[0]))) for model in self._models]
-                results = [model.predict(afeature[0:1]) for model in self._models]
-                binnary = [+1.0 if result > 0.0 else 0.0 for result in results]
+                afeature = np.reshape(afeature, (1, afeature.shape[0]))
+                results = [model.predict(afeature) for model in self._models]
+                binnary = [+1.0 if result.flatten()[1] > 0.0 else 0.0 for result in results]
                 mean_list.append(sum(binnary) / len(binnary))
         score = np.mean(mean_list)
         label = self._pos_label if score >= threshold else self._neg_label

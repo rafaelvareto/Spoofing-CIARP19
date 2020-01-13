@@ -191,11 +191,6 @@ def main():
         result['labels'] = list()
         result['scores'] = list()
 
-        # for (key, value) in c_probe_dict.items():
-        #     print(key)
-        #     print(value, value[0].shape)
-        #     input()
-
         # THRESHOLD: Predict samples
         validation_labels = list()
         validation_scores = list()
