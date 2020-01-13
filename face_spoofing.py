@@ -229,6 +229,7 @@ class FaceSpoofing:
                 afeature = np.asarray(feature)
                 afeature = np.reshape(afeature, (1, afeature.shape[0]))
                 results = [model.predict(afeature) for model in self._models]
+                print([result.flatten().tolist() for result in results[0:4]])
                 binnary = [+1.0 if result.flatten()[1] > 0.0 else 0.0 for result in results]
                 mean_list.append(sum(binnary) / len(binnary))
         score = np.mean(mean_list)
@@ -375,4 +376,4 @@ class FaceSpoofing:
             self._models.append(model)
             print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
         print('Feature Shape', rand_features[0].shape)
-        self.save_model(file_name='saves/esvm_model.npy')
+        self.save_model(file_name='saves/emlp_model.npy')

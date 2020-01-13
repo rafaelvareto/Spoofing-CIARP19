@@ -96,7 +96,7 @@ def oulu_tokenize_path(path_name):
 def tuple_to_dict(file_name, binarize=False):
     print('Loading ', file_name)
     new_dict = dict()
-    feature_list, label_list, path_list = np.load(file_name, encoding="latin1")
+    feature_list, label_list, path_list = np.load(file_name, allow_pickle=True, encoding="latin1")
     assert(feature_list.shape == label_list.shape == path_list.shape)
     for triplet in zip(feature_list, label_list, path_list):
         x_data, y_data, z_data = triplet[0], triplet[1], triplet[2]
@@ -234,9 +234,9 @@ def main():
     parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
-    parser.add_argument('-dv', '--devel_file', help='Path to devel txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-dev.npy"), type=str)
-    parser.add_argument('-pr', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-test.npy"), type=str)
-    parser.add_argument('-tr', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-VisualRhythm/datasets/OULU-train.npy"), type=str)
+    parser.add_argument('-dv', '--devel_file', help='Path to devel txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/OULU-dev.npy"), type=str)
+    parser.add_argument('-pr', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/OULU-test.npy"), type=str)
+    parser.add_argument('-tr', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/OULU-train.npy"), type=str)
     parser.add_argument('-th', '--threshold', help='Set threshold for probe prediction', required=False, default=0.0, type=float)
     
     # Storing in variables
@@ -308,7 +308,9 @@ def main():
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
         if BAGGING:
-            spoofDet.trainESVM(models=BAGGING, samples4model=INSTANCES) 
+            spoofDet.trainEMLP(models=BAGGING, samples4model=INSTANCES)
+            # spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES)
+            # spoofDet.trainESVM(models=BAGGING, samples4model=INSTANCES) 
         else:
             spoofDet.trainPLS(components=10, iterations=1000)
 
@@ -330,7 +332,9 @@ def main():
         validation_labels = list()
         validation_scores = list()
         for (label, path) in c_probe_dict.keys():
-            pred_label, pred_score = spoofDet.predict_feature(c_probe_dict[(label, path)])
+            probe_feats = c_probe_dict[(label, path)]
+            print('GT:', label, path)
+            pred_label, pred_score = spoofDet.predict_feature(probe_feats)
             validation_labels.append(+1) if label == 'live' else validation_labels.append(-1)
             validation_scores.append(pred_score)
         precision, recall, threshold = precision_recall_curve(validation_labels, validation_scores)
@@ -343,7 +347,8 @@ def main():
         video_counter = 0
         for (label, path) in c_probe_dict.keys():
             counter_dict[label] += 1
-            pred_label, pred_score = spoofDet.predict_feature(c_probe_dict[(label, path)], threshold=best_threshold)
+            probe_feats = c_probe_dict[(label, path)]
+            pred_label, pred_score = spoofDet.predict_feature(probe_feats, threshold=best_threshold)
             assert(pred_score is not None)
             # Generate ROC Curve
             result['labels'].append(+1) if label == 'live' else result['labels'].append(-1)

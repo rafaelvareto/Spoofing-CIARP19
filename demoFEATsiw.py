@@ -89,7 +89,7 @@ def tokenize_path(path_name):
 def tuple_to_dict(file_name, binarize=False):
     print('Loading ', file_name)
     new_dict = dict()
-    feature_list, label_list, path_list = np.load(file_name)
+    feature_list, label_list, path_list = np.load(file_name, allow_pickle=True)
     assert(feature_list.shape == label_list.shape == path_list.shape)
     for triplet in zip(feature_list, label_list, path_list):
         x_data, y_data, z_data = triplet[0], triplet[1], triplet[2]
@@ -243,7 +243,9 @@ def main():
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
         if BAGGING:
-            spoofDet.trainESVM(models=BAGGING, samples4model=INSTANCES) 
+            spoofDet.trainEMLP(models=BAGGING, samples4model=INSTANCES)
+            # spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES)
+            # spoofDet.trainESVM(models=BAGGING, samples4model=INSTANCES) 
         else:
             spoofDet.trainPLS(components=10, iterations=1000)
 

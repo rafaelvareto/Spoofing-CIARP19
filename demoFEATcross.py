@@ -249,11 +249,12 @@ def main():
             out_file.write(json.dumps(result_errors))
 
         # Plot figures
-        plt.figure()
-        roc_data = MyPlots.merge_roc_curves(result_labels, result_scores, name='ROC Average')
-        MyPlots.plt_roc_curves([roc_data,])
-        plt.savefig(CHART_PATH + SAVE_NAME + '.pdf')
-        plt.close()
+        if max(result_scores) != min(result_scores):
+            plt.figure()
+            roc_data = MyPlots.merge_roc_curves(result_labels, result_scores, name='ROC Average')
+            MyPlots.plt_roc_curves([roc_data,])
+            plt.savefig(CHART_PATH + SAVE_NAME + '.pdf')
+            plt.close()
 
     # Compute average APCER and BPCER
     print('\n------------------------------------------------------------------')
