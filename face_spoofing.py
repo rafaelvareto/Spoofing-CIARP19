@@ -229,14 +229,16 @@ class FaceSpoofing:
                 afeature = np.asarray(feature)
                 afeature = np.reshape(afeature, (1, afeature.shape[0]))
                 results = [model.predict(afeature) for model in self._models]
-                print([result.flatten().tolist() for result in results[0:4]])
-                binnary = [+1.0 if result.flatten()[1] > 0.0 else 0.0 for result in results]
+                # print([result.flatten().tolist() for result in results[0:3]])
+                binnary = [+1.0 if result.flatten()[1] > threshold else 0.0 for result in results]
                 mean_list.append(sum(binnary) / len(binnary))
         score = np.mean(mean_list)
-        label = self._pos_label if score >= threshold else self._neg_label
+        label = self._pos_label if score >= 0.5 else self._neg_label
+        # print(score, label)
+        # print('')
         return (label, score)
 
-    def predict_feature(self, probe_features, drop_frame=10, threshold=0.50):
+    def predict_feature(self, probe_features, drop_frame=2, threshold=0.50):
         if self._type in ['OAAPLS', 'OAASVM']:
             return self.predict_feature_oaa(probe_features, drop_frame, threshold)
         elif self._type in ['EPLS', 'ESVM']:
@@ -369,7 +371,7 @@ class FaceSpoofing:
         print('Training an Ensemble of MLP classifiers')
         for index in range(models):
             rand_features, rand_labels = self.__feature_sampling(num_samples=samples4model)
-            bool_labels = [+1.0 if self._pos_label == lab else -1.0 for lab in rand_labels]
+            bool_labels = [+1.0 if self._pos_label == lab else 0.0 for lab in rand_labels]
             cate_labels = keras_np_utils.to_categorical(bool_labels, 2)
             model = getModel(input_shape=rand_features[0].shape)
             model.fit(np.array(rand_features), np.array(cate_labels), batch_size=40, nb_epoch=100, verbose=0)

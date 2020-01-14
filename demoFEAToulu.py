@@ -333,8 +333,7 @@ def main():
         validation_scores = list()
         for (label, path) in c_probe_dict.keys():
             probe_feats = c_probe_dict[(label, path)]
-            print('GT:', label, path)
-            pred_label, pred_score = spoofDet.predict_feature(probe_feats)
+            pred_label, pred_score = spoofDet.predict_feature(probe_feats, threshold=0.75)
             validation_labels.append(+1) if label == 'live' else validation_labels.append(-1)
             validation_scores.append(pred_score)
         precision, recall, threshold = precision_recall_curve(validation_labels, validation_scores)
