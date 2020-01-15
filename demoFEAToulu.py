@@ -267,7 +267,7 @@ def main():
         REPETITIONS = 6
     else:
         raise ValueError('ERROR: Scenarios range from one through three.')
-        exit
+        exit()
 
     # Store all-interation results
     max_neg_values = list()

@@ -230,12 +230,11 @@ class FaceSpoofing:
                 afeature = np.reshape(afeature, (1, afeature.shape[0]))
                 results = [model.predict(afeature) for model in self._models]
                 # print([result.flatten().tolist() for result in results[0:3]])
-                binnary = [+1.0 if result.flatten()[1] > threshold else 0.0 for result in results]
+                # binnary = [1.0 for result in results if result.flatten()[1] >= 0.6] + [0.0 for result in results if result.flatten()[1] <= 0.4]
+                binnary = [+1.0 if result.flatten()[1] > 0.5 else 0.0 for result in results]
                 mean_list.append(sum(binnary) / len(binnary))
         score = np.mean(mean_list)
-        label = self._pos_label if score >= 0.5 else self._neg_label
-        # print(score, label)
-        # print('')
+        label = self._pos_label if score >= threshold else self._neg_label
         return (label, score)
 
     def predict_feature(self, probe_features, drop_frame=2, threshold=0.50):
@@ -357,7 +356,7 @@ class FaceSpoofing:
         from keras.layers import Dense as keras_dense 
         from keras.layers import Dropout as keras_dropout
         from keras.utils import np_utils as keras_np_utils
-        def getModel(input_shape, nneuros=64, nclasses=2):
+        def getModel(input_shape, nneuros=32, nclasses=2):
             model = keras_sequential()
             model.add(keras_dense(nneuros, activation='relu', input_shape=input_shape))
             model.add(keras_dropout(0.2))
@@ -374,7 +373,7 @@ class FaceSpoofing:
             bool_labels = [+1.0 if self._pos_label == lab else 0.0 for lab in rand_labels]
             cate_labels = keras_np_utils.to_categorical(bool_labels, 2)
             model = getModel(input_shape=rand_features[0].shape)
-            model.fit(np.array(rand_features), np.array(cate_labels), batch_size=40, nb_epoch=100, verbose=0)
+            model.fit(np.array(rand_features), np.array(cate_labels), batch_size=10, nb_epoch=100, verbose=1)
             self._models.append(model)
             print(' -> Training model %3d with %d random samples' % (index + 1, samples4model))
         print('Feature Shape', rand_features[0].shape)
