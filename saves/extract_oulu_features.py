@@ -27,12 +27,14 @@ def load_txt_file(file_name):
 
 def load_face_file(file_name):
     # num_frame, x_eye_left, y_eye_left, x_eye_right, y_eye_right
-    this_file = open(file_name, 'r')
+    file_name = file_name.replace('_tiny','')
+    print(file_name)
     this_list = list()
-    for line in this_file:
-        line = line.rstrip()
-        components = line.split(',')
-        this_list.append(components)
+    with open(file_name, 'rb') as this_file:
+        for line in this_file:
+            line = line.rstrip()
+            components = line.split(b',')
+            this_list.append(components)
     return this_list 
 
 def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=100, v_margin=110):
@@ -100,8 +102,9 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
                 ret, read_frame = read_video.read()
                 if ret:
                     if frame_counter % frame_drop == 0:
-                        size = [int(scale * read_frame.shape[1]), int(scale * read_frame.shape[0])]
+                        size = [int(0.8 * read_frame.shape[1]), int(0.8 * read_frame.shape[0])]
                         read_color = cv.resize(read_frame, (size[0], size[1]), interpolation=cv.INTER_AREA)
+                        # read_color = read_frame
 
                         read_greyd = cv.cvtColor(read_color, cv.COLOR_BGR2GRAY)
                         read_hsvch = get_cropped_face(cv.cvtColor(read_color, cv.COLOR_BGR2HSV), scale=scale, eye_tuple=annt_tuples[frame_counter])
@@ -118,6 +121,8 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
                         read_feats = np.concatenate((read_featA, read_featB, read_featC, read_featD), axis=0)
                         read_spect = (read_spect / np.max(read_spect)) * 255
                         
+                        print('SIW (hog, lbp-1, lbp-2, glcm, total):', len(read_featA), len(read_featB), len(read_featC), len(read_featD), len(read_feats))
+
                         if saveCopy:
                             spec_video.write(read_spect.astype('uint8'))
                             tiny_video.write(np.hstack((read_hsvch, read_ycrcb)))
@@ -152,12 +157,12 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from Dataset')
     parser.add_argument('-s', '--drop_frame', help='Define number of skipped frames', required=False, default=10, type=str)
-    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU"), type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/OULU-dataset"), type=str)
     parser.add_argument('-m', '--mode_exec', help='Choose to extract feature from Train or Test files', required=False, default='None', type=str)
 
-    parser.add_argument('-dv', '--develop_file',  help='Path to develop txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/videos_dev.txt"), type=str)
-    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/videos_test.txt"), type=str)
-    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/OULU/videos_train.txt"), type=str)
+    parser.add_argument('-dv', '--develop_file',  help='Path to develop txt file',  required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/OULU-dataset/directions.txt"), type=str)
+    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/OULU-dataset/directions.txt"), type=str)
+    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/OULU-dataset/directions.txt"), type=str)
 
     # Storing in variables
     args = parser.parse_args()

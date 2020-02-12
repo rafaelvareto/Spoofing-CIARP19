@@ -25,14 +25,18 @@ def load_txt_file(file_name):
         this_list.append(components)
     return this_list
 
+
+# with open(path, 'rb') as f:
+#   contents = f.read()
+
 def load_face_file(file_name):
     # (x,y) locations of the upper left corner and the botton right corner
-    this_file = open(file_name, 'r')
     this_list = list()
-    for line in this_file:
-        line = line.rstrip()
-        components = line.split()
-        this_list.append(components)
+    with open(file_name, 'rb') as this_file:
+        for line in this_file:
+            line = line.rstrip()
+            components = line.split()
+            this_list.append(components)
     return this_list 
 
 def get_cropped_face(color_img, eye_tuple, scale=0.50, h_margin=0, v_margin=0):
@@ -79,6 +83,7 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
     inner_counter = overall_counter = 0
     for (path, label) in dataset_tuple:
         if path not in path_list:
+            print(path, label)
             frame_counter = 0
             probe_fourcc = cv.VideoWriter_fourcc(*'MP42') 
 
@@ -111,12 +116,14 @@ def obtain_video_features(folder_path, dataset_tuple, frame_drop=1, scale=0.5, f
                         read_spect = get_fourier_spectrum(noise_img=read_noise)
                         
                         read_featA = descriptor.get_hog_feature(image=read_greyd, pixel4cell=(96,96), cell4block=(1,1), orientation=8)
-                        read_featB = descriptor.get_lbp_ch_feature(image=read_hsvch, bins=265, points=8, radius=1)
-                        read_featC = descriptor.get_lbp_ch_feature(image=read_ycrcb, bins=265, points=8, radius=1)
+                        read_featB = descriptor.get_lbp_ch_feature(image=read_hsvch, bins=256, points=8, radius=1)
+                        read_featC = descriptor.get_lbp_ch_feature(image=read_ycrcb, bins=256, points=8, radius=1)
                         read_featD = descriptor.get_glcm_feature(image=read_spect, dists=[1,2], shades=20)
-                        
+
                         read_feats = np.concatenate((read_featA, read_featB, read_featC, read_featD), axis=0)
                         read_spect = (read_spect / np.max(read_spect)) * 255
+
+                        print('SIW (hog, lbp-1, lbp-2, glcm, total):', len(read_featA), len(read_featB), len(read_featC), len(read_featD), len(read_feats))
                         
                         if saveCopy:
                             spec_video.write(read_spect.astype('uint8'))
@@ -152,11 +159,11 @@ def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from Dataset')
     parser.add_argument('-s', '--drop_frame', help='Define number of skipped frames', required=False, default=10, type=str)
-    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/SPOOF_IN_WILD"), type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to video folder', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/SiW-dataset"), type=str)
     parser.add_argument('-m', '--mode_exec', help='Choose to extract feature from Train or Test files', required=False, default='None', type=str)
 
-    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/SPOOF_IN_WILD/videos_test.txt"), type=str)
-    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "REMOTE/DATASETS/TEMP/SPOOF_IN_WILD/videos_train.txt"), type=str)
+    parser.add_argument('-te', '--testing_file',  help='Path to testing txt file',  required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/SiW-dataset/directions-2-test.txt"), type=str)
+    parser.add_argument('-tr', '--training_file', help='Path to training txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/SiW-dataset/directions-2-train.txt"), type=str)
 
     # Storing in variables
     args = parser.parse_args()

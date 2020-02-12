@@ -174,8 +174,8 @@ def main():
     parser.add_argument('-i', '--instances', help='Number of samples per bagging model', required=False, default=50, type=int)
     parser.add_argument('-m', '--max_frames', help='Establish maximum number of frames for training', required=False, default=False, type=int)
     parser.add_argument('-s', '--scenario', help='Choose protocol execution', required=False, default='one', type=str)
-    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-probe.npy"), type=str)
-    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "REMOTE/VMAIS/dataset/SiW_release/Features/SiW-train.npy"), type=str)
+    parser.add_argument('-p', '--probe_file', help='Path to probe txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/SiW-test.npy"), type=str)
+    parser.add_argument('-t', '--train_file', help='Path to train txt file', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/SiW-train.npy"), type=str)
     parser.add_argument('-th', '--threshold', help='Set threshold for probe prediction', required=False, default=0.0, type=float)
     
     # Storing in variables
@@ -242,16 +242,19 @@ def main():
         # Instantiate SpoofDet class
         spoofDet = FaceSpoofing()
         spoofDet.import_features(feature_dict=c_train_dict)
+
+        # Check whether class is ready to continue
+        print('Classes: ', spoofDet.get_classes())
+        assert('live' in spoofDet.get_classes())
+
+        input()
+    
         if BAGGING:
             spoofDet.trainEMLP(models=BAGGING, samples4model=INSTANCES)
             # spoofDet.trainEPLS(models=BAGGING, samples4model=INSTANCES)
             # spoofDet.trainESVM(models=BAGGING, samples4model=INSTANCES) 
         else:
             spoofDet.trainPLS(components=10, iterations=1000)
-
-        # Check whether class is ready to continue
-        print('Classes: ', spoofDet.get_classes())
-        assert('live' in spoofDet.get_classes())
 
         # Define APCER/BPCER variables
         instances = spoofDet.get_classes()

@@ -106,6 +106,9 @@ def obtain_image_features(folder_path, size=(640, 360), file_name='image_feature
             sample_feats = np.concatenate((sample_featA, sample_featB, sample_featC, sample_featD), axis=0)
             sample_spect = (sample_spect / np.max(sample_spect)) * 255
 
+
+            print('SIW (hog, lbp-1, lbp-2, glcm, total):', len(sample_featA), len(sample_featB), len(sample_featC), len(sample_featD), len(sample_feats))
+
             if verbose:
                 print(overall_counter + 1, inner_counter + 1, dir_item, name_item, len(sample_featA), len(sample_featB), len(sample_featC), len(sample_featD))
             if saveCopy:
@@ -134,12 +137,13 @@ def obtain_image_features(folder_path, size=(640, 360), file_name='image_feature
 def main():
     # Handle arguments
     parser = argparse.ArgumentParser(description='Extracting Features from folder containing images')
-    parser.add_argument('-f', '--folder_path', help='Path to image folder', required=False, default=os.path.join(HOME, "GIT/Spoofing-ICASSP19/datasets/WAX"), type=str)
+    parser.add_argument('-f', '--folder_path', help='Path to image folder', required=False, default=os.path.join(HOME, "GIT/Spoofing-CIARP19/datasets/WAX"), type=str)
 
     # Storing in variables
     args = parser.parse_args()
     FOLDER_PATH = str(args.folder_path)
-    obtain_image_features(folder_path=FOLDER_PATH, size=(680, 520), file_name='WAX-feats.npy', saveCopy=True, show=True, verbose=True)
+    obtain_image_features(folder_path=FOLDER_PATH, size=(250, 200), file_name='WAX-feats.npy', saveCopy=True, show=True, verbose=True)
+
 
 
 if __name__ == "__main__":
